@@ -3,7 +3,7 @@ Encryption package for Tweakio SDK.
 
 Provides secure encryption and decryption for platform messages using:
 - AES-256-GCM for authenticated encryption
-- Argon2id for key derivation
+- PBKDF2-HMAC-SHA256 for key derivation (480,000 iterations, OWASP recommended)
 - Per-user encryption keys
 
 Usage:

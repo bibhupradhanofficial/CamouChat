@@ -45,7 +45,7 @@ class MessageProcessor(MessageProcessorInterface):
             UIConfig=UIConfig,
         )
         self.chat_processor = chat_processor
-        self.encryption_key = encryption_key
+        # Bug 3 fix: never persist raw key on self — initialise encryptor then discard
         self.encryptor = None
 
         if encryption_key:
@@ -57,6 +57,8 @@ class MessageProcessor(MessageProcessorInterface):
             except Exception as e:
                 self.log.error(f"Failed to initialize encryptor: {e}")
                 self.encryptor = None
+            finally:
+                del encryption_key  # wipe raw key from memory immediately
 
         if self.page is None:
             raise ValueError("page must not be None")
@@ -131,18 +133,29 @@ class MessageProcessor(MessageProcessorInterface):
         msgList = await self._get_wrapped_Messages(chat, retry, *args, **kwargs)
 
         if self.storage and msgList:
+            # Bug 1 fix: use async version — check_message_if_exists uses asyncio.run()
+            # which raises RuntimeError when called from inside a running event loop.
             new_msgs = [
                 msg
                 for msg in msgList
-                if not self.storage.check_message_if_exists(msg.message_id)
+                if not await self.storage.check_message_if_exists_async(msg.message_id)
             ]
             if new_msgs:
                 # Encrypt messages if encryption is enabled
                 if self.encryptor:
                     for msg in new_msgs:
                         try:
+                            # Bug 2 fix: skip encryption for media/empty messages
+                            # where raw_data is None (images, stickers, voice notes)
+                            raw = msg.raw_data or ""
+                            if not raw:
+                                self.log.debug(
+                                    f"Skipping encryption for non-text message {msg.message_id}"
+                                )
+                                continue
+
                             nonce, ciphertext = self.encryptor.encrypt_message(
-                                msg.raw_data, msg.message_id
+                                raw, msg.message_id
                             )
                             msg.encrypted_message = base64.b64encode(ciphertext).decode(
                                 "utf-8"
