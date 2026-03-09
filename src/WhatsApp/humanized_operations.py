@@ -5,6 +5,7 @@ import logging
 import random
 import asyncio
 import os
+import tempfile
 from filelock import FileLock
 from typing import Union, Optional
 
@@ -95,9 +96,14 @@ class HumanizedOperations(HumanizeOperationInterface):
             await loop.run_in_executor(None, _clipboard_file_lock.acquire)
 
             try:
-                previous_clipboard = pyperclip.paste()
-
-                pyperclip.copy(text)
+                # Get clipboard safely
+                previous_clipboard = await loop.run_in_executor(
+                    None, pyperclip.paste
+                )
+                # Copy text safely
+                await loop.run_in_executor(
+                        None, pyperclip.copy, text
+                )
 
                 # Small delay ensures clipboard propagation
                 await asyncio.sleep(0.05)
@@ -106,5 +112,7 @@ class HumanizedOperations(HumanizeOperationInterface):
             finally:
                 # Restore previous clipboard content
                 if previous_clipboard:
-                    pyperclip.copy(previous_clipboard)
+                    await loop.run_in_executor(
+                        None, pyperclip.copy, previous_clipboard
+                    )
                 _clipboard_file_lock.release()
