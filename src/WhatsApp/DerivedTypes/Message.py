@@ -25,8 +25,17 @@ class whatsapp_message:
     data_type: Optional[str] = None
     message_id: str = field(init=False)
     system_hit_time: float = field(default_factory=time.time)
+
+    # Message body encryption (set by MessageProcessor when encryption is enabled)
     encrypted_message: Optional[str] = None
     encryption_nonce: Optional[str] = None
+
+    # Chat name encryption (set by MessageProcessor when encryption is enabled)
+    # encrypted_chat_name / chat_name_nonce: AES-256-GCM ciphertext of the real chat name
+    # parent_chat_name_index: HMAC-SHA256 hex digest used as the queryable DB index value
+    encrypted_chat_name: Optional[str] = None
+    chat_name_nonce: Optional[str] = None
+    parent_chat_name_index: Optional[str] = None  # replaces plaintext in DB when encrypted
 
     def isIncoming(self) -> Optional[bool]:
         """

@@ -147,11 +147,11 @@ class SQLAlchemyStorage(StorageInterface):
 
     async def _migrate_add_encryption_columns(self) -> None:
         """
-        Issue 5 fix: Safe migration for users upgrading from v0.1.5.
+        Safe migration for users upgrading from older versions.
 
         SQLAlchemy's create_all() only creates missing tables — it does NOT add
         new columns to existing tables. Users who already have a messages.db
-        from v0.1.5 would get OperationalError without this migration.
+        would get OperationalError without this migration.
 
         Uses 'ALTER TABLE ... ADD COLUMN' with silent error swallowing because
         SQLite does not support 'IF NOT EXISTS' on ADD COLUMN (pre-3.37.0).
@@ -161,6 +161,8 @@ class SQLAlchemyStorage(StorageInterface):
         migration_sqls = [
             "ALTER TABLE messages ADD COLUMN encrypted_message TEXT",
             "ALTER TABLE messages ADD COLUMN encryption_nonce VARCHAR(255)",
+            "ALTER TABLE messages ADD COLUMN encrypted_chat_name TEXT",
+            "ALTER TABLE messages ADD COLUMN chat_name_nonce VARCHAR(255)",
         ]
         async with self._engine.begin() as conn:
             for sql in migration_sqls:
@@ -168,8 +170,7 @@ class SQLAlchemyStorage(StorageInterface):
                     await conn.execute(text(sql))
                     self.log.debug(f"Migration applied: {sql}")
                 except Exception:
-                    # Column already exists — this is expected on fresh installs
-                    pass
+                    pass  # Column already exists — expected on fresh installs
 
     async def start_writer(self, **kwargs) -> None:
         """Start background task to consume queue and write batches."""
@@ -293,9 +294,15 @@ class SQLAlchemyStorage(StorageInterface):
         data_type = getattr(msg, 'data_type', None)
         direction = getattr(msg, 'direction', None)
         system_hit_time = getattr(msg, 'system_hit_time', 0.0)
-        # Issue 4 fix: map the new encryption fields added by the contributor
+
         encrypted_message = getattr(msg, 'encrypted_message', None)
         encryption_nonce = getattr(msg, 'encryption_nonce', None)
+        encrypted_chat_name = getattr(msg, 'encrypted_chat_name', None)
+        chat_name_nonce = getattr(msg, 'chat_name_nonce', None)
+
+        # When encryption is enabled, plaintext and ciphertext must not coexist.
+        if encrypted_message and raw_data:
+            raw_data = ""
 
         parent_chat = getattr(msg, 'parent_chat', None)
         parent_chat_name = ''
@@ -304,11 +311,19 @@ class SQLAlchemyStorage(StorageInterface):
             parent_chat_name = getattr(parent_chat, 'chatName', '') or getattr(parent_chat, 'chat_name', '')
             parent_chat_id = getattr(parent_chat, 'chatID', '') or getattr(parent_chat, 'chat_id', '')
 
+        # When chat name is encrypted, the index column holds an HMAC digest
+        # so queries remain functional without exposing the real name.
+        index_name = getattr(msg, 'parent_chat_name_index', None)
+        if encrypted_chat_name and index_name:
+            parent_chat_name = index_name
+
         return Message(
             message_id=str(message_id),
             raw_data=str(raw_data) if raw_data else '',
             encrypted_message=encrypted_message,
             encryption_nonce=encryption_nonce,
+            encrypted_chat_name=encrypted_chat_name,
+            chat_name_nonce=chat_name_nonce,
             data_type=str(data_type) if data_type else None,
             direction=str(direction) if direction else None,
             parent_chat_name=str(parent_chat_name),
@@ -379,7 +394,7 @@ class SQLAlchemyStorage(StorageInterface):
                 return []
 
     async def get_messages_by_chat(self, chat_name: str, **kwargs) -> List[Dict[str, Any]]:
-        """Get messages filtered by chat name."""
+        """Get messages filtered by chat name (or HMAC digest if encryption is enabled)."""
         if not self._session_factory:
             return []
 
@@ -400,6 +415,81 @@ class SQLAlchemyStorage(StorageInterface):
             except Exception as e:
                 self.log.error(f"Get messages by chat failed: {e}")
                 return []
+
+    async def get_decrypted_messages_async(
+        self,
+        key: bytes,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch all messages and decrypt body + chat name on-the-fly.
+
+        This is the primary way a user retrieves readable messages when
+        encryption is enabled.  Pass the key from
+        ``ProfileManager.get_key(platform, profile_id)``.
+
+        Args:
+            key:    Raw 32-byte AES-256 key (from ProfileManager.get_key).
+            limit:  Max rows to fetch.
+            offset: Pagination offset.
+
+        Returns:
+            List of dicts identical to ``to_dict()`` but with:
+            - ``raw_data`` populated with decrypted plaintext (or original value
+              when the row was stored without encryption).
+            - ``parent_chat_name`` populated with decrypted chat name (or the
+              HMAC digest / original value when not encrypted).
+
+        Example::
+
+            key = manager.get_key(Platform.WHATSAPP, "my_profile")
+            rows = await storage.get_decrypted_messages_async(key)
+        """
+        import base64 as _b64
+        from src.Encryption import MessageDecryptor, KeyManager
+        import hashlib as _hashlib
+
+        rows = await self.get_all_messages_async(limit=limit, offset=offset)
+
+        decryptor = MessageDecryptor(key)
+        # Re-derive the HMAC sub-key used for chat-name indexing
+        hmac_key = _hashlib.sha256(key + b"chat-name-index").digest()[:16]
+
+        result = []
+        for row in rows:
+            out = dict(row)
+
+            # Decrypt message body
+            enc_msg = row.get("encrypted_message")
+            enc_nonce = row.get("encryption_nonce")
+            if enc_msg and enc_nonce:
+                try:
+                    nonce_bytes = _b64.b64decode(enc_nonce)
+                    cipher_bytes = _b64.b64decode(enc_msg)
+                    msg_id = row.get("message_id", "")
+                    out["raw_data"] = decryptor.decrypt_message(
+                        nonce_bytes, cipher_bytes, msg_id or None
+                    )
+                except Exception as e:
+                    self.log.warning(f"Failed to decrypt message {row.get('message_id')}: {e}")
+                    out["raw_data"] = "<decryption failed>"
+
+            # Decrypt chat name
+            enc_chat = row.get("encrypted_chat_name")
+            chat_nonce = row.get("chat_name_nonce")
+            if enc_chat and chat_nonce:
+                try:
+                    nonce_bytes = _b64.b64decode(chat_nonce)
+                    cipher_bytes = _b64.b64decode(enc_chat)
+                    out["parent_chat_name"] = decryptor.decrypt(nonce_bytes, cipher_bytes)
+                except Exception as e:
+                    self.log.warning(f"Failed to decrypt chat name: {e}")
+                    out["parent_chat_name"] = "<decryption failed>"
+
+            result.append(out)
+
+        return result
 
     def _get_session_factory(self) -> async_sessionmaker[AsyncSession]:
         if self._session_factory is None:
@@ -428,7 +518,7 @@ class SQLAlchemyStorage(StorageInterface):
         """Async context manager entry."""
         await self.init_db()
         await self.create_table()
-        await self._migrate_add_encryption_columns()  # Issue 5 fix: safe upgrade migration
+        await self._migrate_add_encryption_columns()
         await self.start_writer()
         return self
 

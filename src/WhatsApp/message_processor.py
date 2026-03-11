@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-import logging
 import base64
+import hashlib
+import hmac
+import logging
 from typing import List, Optional, Sequence
 
 from playwright.async_api import Page
@@ -25,7 +27,21 @@ from src.WhatsApp.web_ui_config import WebSelectorConfig
 
 
 class MessageProcessor(MessageProcessorInterface):
-    """Extracts and processes messages from WhatsApp Web UI."""
+    """Extracts, encrypts (optionally), and stores messages from WhatsApp Web UI.
+
+    Encryption behaviour
+    --------------------
+    When an ``encryption_key`` is supplied:
+
+    - Message body (``raw_data``) is encrypted with AES-256-GCM and the
+      plaintext is blanked, so ciphertext and plaintext never coexist in
+      the same database row.
+    - Chat name (``parent_chat_name``) is encrypted with AES-256-GCM; the
+      database index column stores a stable HMAC-SHA256 digest instead of
+      the real name, keeping queries functional without exposing it.
+    - The raw key is deleted from memory immediately after the encryptor is
+      initialised.
+    """
 
     def __init__(
         self,
@@ -45,23 +61,51 @@ class MessageProcessor(MessageProcessorInterface):
             UIConfig=UIConfig,
         )
         self.chat_processor = chat_processor
-        # Bug 3 fix: never persist raw key on self — initialise encryptor then discard
+
         self.encryptor = None
+        self._hmac_key: Optional[bytes] = None
 
         if encryption_key:
             try:
                 from src.Encryption import MessageEncryptor
 
                 self.encryptor = MessageEncryptor(encryption_key)
-                self.log.info("Message encryption enabled")
+                self._hmac_key = hashlib.sha256(encryption_key + b"chat-name-index").digest()[:16]
+                self.log.info("Message encryption enabled (body + chat name).")
             except Exception as e:
-                self.log.error(f"Failed to initialize encryptor: {e}")
+                self.log.error(f"Failed to initialise encryptor: {e}")
                 self.encryptor = None
+                self._hmac_key = None
             finally:
-                del encryption_key  # wipe raw key from memory immediately
+                del encryption_key
 
         if self.page is None:
             raise ValueError("page must not be None")
+
+    def _hmac_chat_name(self, chat_name: str) -> str:
+        """Return a stable HMAC-SHA256 hex digest of the chat name.
+
+        Used as the queryable ``parent_chat_name`` index value when encryption
+        is enabled — the real name is stored encrypted in ``encrypted_chat_name``.
+        """
+        assert self._hmac_key is not None
+        return hmac.new(  # type: ignore[attr-defined]
+            self._hmac_key, chat_name.encode("utf-8"), hashlib.sha256
+        ).hexdigest()
+
+    def _encrypt_chat_name(self, chat_name: str) -> tuple[str, str, str]:
+        """Encrypt chat name.
+
+        Returns:
+            Tuple of (hmac_digest, b64_ciphertext, b64_nonce).
+        """
+        assert self.encryptor is not None
+        nonce, ciphertext = self.encryptor.encrypt(chat_name)
+        return (
+            self._hmac_chat_name(chat_name),
+            base64.b64encode(ciphertext).decode("utf-8"),
+            base64.b64encode(nonce).decode("utf-8"),
+        )
 
     @staticmethod
     async def sort_messages(
@@ -105,9 +149,7 @@ class MessageProcessor(MessageProcessorInterface):
                     c2 += 1
 
                 if not data_id:
-                    self.log.debug(
-                        "Data ID in WA / get wrapped Messages , None/Empty. Skipping"
-                    )
+                    self.log.debug("Data ID is None/Empty — skipping message.")
                     continue
 
                 wrapped_list.append(
@@ -129,44 +171,42 @@ class MessageProcessor(MessageProcessorInterface):
     async def Fetcher(
         self, chat: whatsapp_chat, retry: int, *args, **kwargs
     ) -> List[whatsapp_message]:
-        """Fetch, store, and filter messages from a chat."""
+        """Fetch, optionally encrypt, store, and filter messages from a chat."""
         msgList = await self._get_wrapped_Messages(chat, retry, *args, **kwargs)
 
         if self.storage and msgList:
-            # Bug 1 fix: use async version — check_message_if_exists uses asyncio.run()
-            # which raises RuntimeError when called from inside a running event loop.
             new_msgs = [
                 msg
                 for msg in msgList
                 if not await self.storage.check_message_if_exists_async(msg.message_id)
             ]
             if new_msgs:
-                # Encrypt messages if encryption is enabled
                 if self.encryptor:
-                    for msg in new_msgs:
-                        try:
-                            # Bug 2 fix: skip encryption for media/empty messages
-                            # where raw_data is None (images, stickers, voice notes)
-                            raw = msg.raw_data or ""
-                            if not raw:
-                                self.log.debug(
-                                    f"Skipping encryption for non-text message {msg.message_id}"
-                                )
-                                continue
+                    chat_name = chat.chat_name
+                    chat_hmac, enc_chat_b64, chat_nonce_b64 = self._encrypt_chat_name(chat_name)
 
-                            nonce, ciphertext = self.encryptor.encrypt_message(
-                                raw, msg.message_id
+                    for msg in new_msgs:
+                        raw = msg.raw_data or ""
+                        if raw:
+                            try:
+                                nonce, ciphertext = self.encryptor.encrypt_message(
+                                    raw, msg.message_id
+                                )
+                                msg.encrypted_message = base64.b64encode(ciphertext).decode("utf-8")
+                                msg.encryption_nonce = base64.b64encode(nonce).decode("utf-8")
+                                msg.raw_data = ""
+                            except Exception as e:
+                                self.log.warning(
+                                    f"Failed to encrypt message {msg.message_id}: {e}"
+                                )
+                        else:
+                            self.log.debug(
+                                f"Skipping body encryption for non-text message {msg.message_id}"
                             )
-                            msg.encrypted_message = base64.b64encode(ciphertext).decode(
-                                "utf-8"
-                            )
-                            msg.encryption_nonce = base64.b64encode(nonce).decode(
-                                "utf-8"
-                            )
-                        except Exception as e:
-                            self.log.warning(
-                                f"Failed to encrypt message {msg.message_id}: {e}"
-                            )
+
+                        msg.encrypted_chat_name = enc_chat_b64
+                        msg.chat_name_nonce = chat_nonce_b64
+                        msg.parent_chat_name_index = chat_hmac
 
                 await self.storage.enqueue_insert(new_msgs)
                 self.log.debug(

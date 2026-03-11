@@ -185,8 +185,7 @@ class WebSelectorConfig(WebUISelectorCapable):
             if message_element is None:
                 return ""
 
-        # OLD: span.selectable-text.copyable-text (Class 'selectable-text' removed in recent WA updates)
-        # NEW: span[data-testid="selectable-text"] OR span.copyable-text
+
         span = await message_element.query_selector("span[data-testid='selectable-text']")
         if not span:
             # Fallback to inner_text directly if span not found
@@ -197,8 +196,6 @@ class WebSelectorConfig(WebUISelectorCapable):
             return text or ""
         return ""
 
-    # def get_message_text(element: Locator | ElementHandle) -> str:
-    #     return element.inner_text().strip()
 
     @staticmethod
     async def is_message_out(message: Union[ElementHandle, Locator]) -> bool:

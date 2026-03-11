@@ -3,15 +3,49 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "tweakio-sdk"
-version = "0.1.5"
-description = "Tweakio-SDK: WhatsApp automation Python library with anti-detection, async storage, and production-grade architecture"
+name = "camouchat"
+version = "0.6"
+description = "CamouChat: Anti-detection WhatsApp automation SDK with end-to-end encrypted storage, async SQLite/PostgreSQL, per-profile sandboxing, and human-like browser behaviour"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 
 authors = [{ name = "BITS-Rohit", email = "rohitguptaradheradhe123@gmail.com" }]
 maintainers = [{ name = "BITS-Rohit", email = "rohitguptaradheradhe123@gmail.com" }]
+
+keywords = [
+    "whatsapp",
+    "whatsapp-automation",
+    "whatsapp-bot",
+    "whatsapp-web",
+    "playwright",
+    "camoufox",
+    "anti-detection",
+    "browser-automation",
+    "encrypted-storage",
+    "aes-256",
+    "async",
+    "sqlite",
+    "postgresql",
+    "camouchat"
+]
+
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Communications :: Chat",
+    "Topic :: Internet :: WWW/HTTP :: Browsers",
+    "Topic :: Security :: Cryptography",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Framework :: AsyncIO",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Natural Language :: English",
+]
 
 dependencies = [
     "playwright>=1.40.0",
@@ -20,6 +54,7 @@ dependencies = [
     "cryptography>=41.0.0",
     "colorlog>=6.10.1",
     "sqlalchemy>=2.0.48",
+    "aiosqlite>=0.19.0",
     "browserforge>=1.2.4",
     "platformdirs>=4.0.0",
     "filelock>=3.13.0"
@@ -38,8 +73,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/BITS-Rohit/tweakio-sdk"
-Repository = "https://github.com/BITS-Rohit/tweakio-sdk"
+Homepage = "https://github.com/BITS-Rohit/camouchat"
+Repository = "https://github.com/BITS-Rohit/camouchat"
+"Bug Tracker" = "https://github.com/BITS-Rohit/camouchat/issues"
+Changelog = "https://github.com/BITS-Rohit/camouchat/releases"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
