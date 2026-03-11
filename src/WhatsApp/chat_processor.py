@@ -1,4 +1,5 @@
 """WhatsApp chat processor for fetching and managing chats."""
+
 from __future__ import annotations
 
 import logging
@@ -18,7 +19,7 @@ from src.WhatsApp.web_ui_config import WebSelectorConfig
 class ChatProcessor(ChatProcessorInterface):
     """Fetches and manages WhatsApp chats from the Web UI."""
 
-    def __init__(self, page: Page, log: logging.Logger, UIConfig: WebSelectorConfig) :
+    def __init__(self, page: Page, log: logging.Logger, UIConfig: WebSelectorConfig):
         super().__init__(page=page, log=log, UIConfig=UIConfig)
         self.capabilities: Dict[str, bool] = {}
         if self.page is None:
@@ -52,8 +53,7 @@ class ChatProcessor(ChatProcessorInterface):
             minimum = min(count, limit)
             for i in range(minimum):
                 wrapperChat = whatsapp_chat(
-                    chat_ui=chats.nth(i),
-                    chat_name=await sc.getChatName(chats.nth(i))
+                    chat_ui=chats.nth(i), chat_name=await sc.getChatName(chats.nth(i))
                 )
                 wrapped.append(wrapperChat)
 
@@ -67,12 +67,16 @@ class ChatProcessor(ChatProcessorInterface):
             if not chat:
                 raise ChatNotFoundError("none passed , expected chat in click chat")
 
-            handle: Optional[ElementHandle] = await chat.chatUI.element_handle(timeout=1500) \
-                if isinstance(chat.chatUI, Locator) \
+            handle: Optional[ElementHandle] = (
+                await chat.chatUI.element_handle(timeout=1500)
+                if isinstance(chat.chatUI, Locator)
                 else chat.chatUI if chat.chatUI is not None else None
+            )
 
             if handle is None:
-                raise ChatClickError("Chat Object is Given None in WhatsApp chat loader / _click_chat")
+                raise ChatClickError(
+                    "Chat Object is Given None in WhatsApp chat loader / _click_chat"
+                )
 
             await handle.click(timeout=3500)
             return True
@@ -88,8 +92,11 @@ class ChatProcessor(ChatProcessorInterface):
             if chat is None:
                 raise ChatNotFoundError("none passed , expected chat in is_unread")
 
-            handle: ElementHandle = await chat.chatUI.element_handle(timeout=1500) \
-                if isinstance(chat.chatUI, Locator) else chat.chatUI
+            handle: ElementHandle = (
+                await chat.chatUI.element_handle(timeout=1500)
+                if isinstance(chat.chatUI, Locator)
+                else chat.chatUI
+            )
 
             unread_Badge = await handle.query_selector("[aria-label*='unread']")
             if unread_Badge:
@@ -110,8 +117,11 @@ class ChatProcessor(ChatProcessorInterface):
             raise ChatNotFoundError("none passed , expected chat in do_unread")
 
         try:
-            chat_handle: ElementHandle = await chat.chatUI.element_handle(timeout=1500) \
-                if isinstance(chat.chatUI, Locator) else chat.chatUI
+            chat_handle: ElementHandle = (
+                await chat.chatUI.element_handle(timeout=1500)
+                if isinstance(chat.chatUI, Locator)
+                else chat.chatUI
+            )
 
             if chat.chatUI is None:
                 raise ChatError("chat UI not initialized")
@@ -133,7 +143,9 @@ class ChatProcessor(ChatProcessorInterface):
                 if read_option:
                     self.log.info("whatsApp chat loader / [do_unread] Chat already unread")
                 else:
-                    self.log.info("whatsApp chat loader / [do_unread] Context menu option not found ❌")
+                    self.log.info(
+                        "whatsApp chat loader / [do_unread] Context menu option not found ❌"
+                    )
 
             return True
 

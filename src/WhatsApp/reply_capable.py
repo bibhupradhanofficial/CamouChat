@@ -1,4 +1,5 @@
 """WhatsApp reply functionality with message targeting."""
+
 from __future__ import annotations
 
 import logging
@@ -24,11 +25,11 @@ class ReplyCapable(ReplyCapableInterface):
             raise ValueError("page must not be None")
 
     async def reply(
-            self,
-            message: whatsapp_message,
-            humanize: HumanizedOperations,
-            text: Optional[str],
-            **kwargs
+        self,
+        message: whatsapp_message,
+        humanize: HumanizedOperations,
+        text: Optional[str],
+        **kwargs,
     ) -> bool:
         """Reply to a message with optional text."""
         try:
@@ -39,8 +40,7 @@ class ReplyCapable(ReplyCapableInterface):
 
             text = text or ""
             success = await humanize.typing(
-                source=await in_box.element_handle(timeout=1000),
-                text=text
+                source=await in_box.element_handle(timeout=1000), text=text
             )
 
             if success:
@@ -49,9 +49,7 @@ class ReplyCapable(ReplyCapableInterface):
             return success
 
         except PlaywrightTimeoutError as e:
-            raise ReplyCapableError(
-                "reply timed out while preparing input box"
-            ) from e
+            raise ReplyCapableError("reply timed out while preparing input box") from e
 
     async def _side_edge_click(self, message: whatsapp_message) -> bool:
         """Double-click on message edge to trigger reply action."""
@@ -72,13 +70,11 @@ class ReplyCapable(ReplyCapableInterface):
                 position=Position(x=rel_x, y=rel_y),
                 click_count=2,
                 delay=random.randint(55, 70),
-                timeout=3000
+                timeout=3000,
             )
 
             await self.page.wait_for_timeout(timeout=500)
             return True
 
         except PlaywrightTimeoutError as e:
-            raise ReplyCapableError(
-                "side_edge_click timed out while clicking message UI"
-            ) from e
+            raise ReplyCapableError("side_edge_click timed out while clicking message UI") from e

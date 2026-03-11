@@ -13,7 +13,7 @@ from playwright.async_api import BrowserContext, Page
 class BrowserInterface(ABC):
     """
     Base interface for browser operations.
-    
+
     Implementations handle browser initialization, page management, and cleanup.
     """
 

@@ -1,4 +1,5 @@
 """WhatsApp media upload functionality."""
+
 from __future__ import annotations
 
 import asyncio
@@ -15,7 +16,7 @@ from src.Interfaces.web_ui_selector import WebUISelectorCapable
 class MediaCapable(MediaCapableInterface):
     """Handles media file uploads to WhatsApp chats."""
 
-    def __init__(self, page: Page, log: logging.Logger, UIConfig: WebUISelectorCapable) :
+    def __init__(self, page: Page, log: logging.Logger, UIConfig: WebUISelectorCapable):
         super().__init__(page=page, log=log, UIConfig=UIConfig)
         if self.page is None:
             raise ValueError("page must not be None")

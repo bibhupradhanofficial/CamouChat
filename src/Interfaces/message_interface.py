@@ -1,4 +1,5 @@
 """Message Interface Protocol, Every Message Class have to Implement this interface"""
+
 from typing import Protocol, Optional, Union
 
 from playwright.async_api import ElementHandle, Locator
