@@ -90,7 +90,7 @@ class HumanizedOperations(HumanizeOperationInterface):
         """
 
         loop = asyncio.get_running_loop()
-
+        previous_clipboard: Optional[str] = None
         async with _clipboard_async_lock:
             # Acquire OS-level file lock in executor (blocking operation)
             await loop.run_in_executor(None, _clipboard_file_lock.acquire)
@@ -111,8 +111,8 @@ class HumanizedOperations(HumanizeOperationInterface):
                 await self.page.keyboard.press("Control+V")
             finally:
                 # Restore previous clipboard content
-                if previous_clipboard:
+                if previous_clipboard is not None:
                     await loop.run_in_executor(
                         None, pyperclip.copy, previous_clipboard
                     )
-                _clipboard_file_lock.release()
+                await loop.run_in_executor(None, _clipboard_file_lock.release)

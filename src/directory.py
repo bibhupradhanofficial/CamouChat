@@ -6,7 +6,7 @@ from platformdirs import PlatformDirs
 class DirectoryManager:
     """Manages application-wide and profile-specific directory structures."""
 
-    def __init__(self, app_name: str = "Tweakio_sdk"):
+    def __init__(self, app_name: str = "CamouChat"):
         """Initialize DirectoryManager with an application name."""
         self.dirs = PlatformDirs(
             appname=app_name,
@@ -39,6 +39,18 @@ class DirectoryManager:
     def get_database_path(self, platform: str, profile_id: str) -> Path:
         """Returns the path to the messages database for a profile."""
         return self.get_profile_dir(platform, profile_id) / "messages.db"
+
+    def get_key_file_path(self, platform: str, profile_id: str) -> Path:
+        """
+        Returns the path to the encryption key file for a profile.
+
+        The key file is separate from metadata.json intentionally — metadata.json
+        is a general-purpose readable file. The key file is a dedicated secret
+        that only ProfileManager touches when encryption is enabled.
+
+        File format: raw base64-encoded 32-byte AES-256 key (single line, no newline).
+        """
+        return self.get_profile_dir(platform, profile_id) / "encryption.key"
 
     def get_error_trace_file(self) -> Path:
         """Returns the path to the global ErrorTrace log file."""
