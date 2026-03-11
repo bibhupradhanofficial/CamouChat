@@ -21,6 +21,7 @@ click==8.3.1
 colorlog==6.10.1
     # via tweakio-sdk (pyproject.toml)
 cryptography==46.0.5
+
     # via tweakio-sdk (pyproject.toml)
 greenlet==3.3.2
     # via
@@ -28,6 +29,9 @@ greenlet==3.3.2
     #   sqlalchemy
 idna==3.11
     # via requests
+
+filelock>=3.13.0
+
 language-tags==1.2.0
     # via camoufox
 lxml==6.0.2
