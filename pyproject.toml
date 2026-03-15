@@ -91,7 +91,7 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 
 [tool.coverage.run]
-source = ["src"]
+source = ["camouchat"]
 
 [tool.black]
 line-length = 100
