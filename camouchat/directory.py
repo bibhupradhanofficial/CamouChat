@@ -53,6 +53,10 @@ class DirectoryManager:
         """Returns the path to the global ErrorTrace log file."""
         return self.cache_dir / "ErrorTrace.log"
 
+    def get_browser_log_file(self) -> Path:
+        """Returns the path to the dedicated browser log file."""
+        return self.cache_dir / "browser.log"
+
     # ----------------------------
     # Profile Subdirectories
     # ----------------------------

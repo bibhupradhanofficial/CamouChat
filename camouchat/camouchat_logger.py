@@ -107,11 +107,38 @@ if not _has_file_handler(logger):
     logger.addHandler(file_handler)
 
 # -------------------------------
-# Global wrapped instance
+# Browser Logger Setup
+# -------------------------------
+_browser_logger = logging.getLogger("tweakio.browser")
+_browser_logger.setLevel(logging.INFO)
+_browser_logger.propagate = False
+
+if not _has_stream_handler(_browser_logger):
+    _browser_logger.addHandler(console_handler)
+
+if not _has_file_handler(_browser_logger):
+    b_log_file = DirectoryManager("CamouChat").get_browser_log_file()
+    os.makedirs(os.path.dirname(b_log_file), exist_ok=True)
+    
+    b_file_handler = ConcurrentRotatingFileHandler(
+        b_log_file,
+        maxBytes=20 * 1024 * 1024,
+        backupCount=3
+    )
+    b_file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
+    _browser_logger.addHandler(b_file_handler)
+
+# -------------------------------
+# Global wrapped instances
 # -------------------------------
 # By default, use GLOBAL for profile if not specified to maintain backward compatibility.
 camouchatLogger = TweakioLoggerAdapter(logger, {"profile_id": "GLOBAL", "process_id": os.getpid()})
+browser_logger = TweakioLoggerAdapter(_browser_logger, {"profile_id": "GLOBAL", "process_id": os.getpid()})
 
 def get_profile_logger(profile_id: str) -> logging.LoggerAdapter:
     """Returns a logger adapter configured for a specific profile_id."""
     return TweakioLoggerAdapter(logger, {"profile_id": profile_id, "process_id": os.getpid()})
+
+def get_browser_profile_logger(profile_id: str) -> logging.LoggerAdapter:
+    """Returns a browser logger adapter configured for a specific profile_id."""
+    return TweakioLoggerAdapter(_browser_logger, {"profile_id": profile_id, "process_id": os.getpid()})
