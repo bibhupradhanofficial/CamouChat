@@ -1,21 +1,18 @@
-"""
-This is an ChatInterFace to implement and usage
-for every Platform Chat Based Objects.
-"""
-
-from __future__ import annotations
-
-from typing import Optional, Protocol, Union
+from abc import ABC, abstractmethod
+from typing import Optional, Union
 
 from playwright.async_api import ElementHandle, Locator
 
 
-class ChatInterface(Protocol):
-    """Chat Interface,"""
+class ChatInterface(ABC):
+    """Chat Interface Base Class"""
 
     chat_name: str
     chat_id: str
     chat_ui: Optional[Union[Locator, ElementHandle]]
     System_Hit_Time: float
 
-    def _chat_key(self, **kwargs) -> str: ...
+    @abstractmethod
+    def _chat_key(self, **kwargs) -> str:
+        """Calculate unique chat key."""
+        ...

@@ -11,8 +11,11 @@ from playwright.async_api import ElementHandle, Locator
 from camouchat.WhatsApp.DerivedTypes.Chat import whatsapp_chat
 
 
+from camouchat.Interfaces.message_interface import MessageInterface
+
+
 @dataclass
-class whatsapp_message:
+class whatsapp_message(MessageInterface):
     """Should inherit the protocol from Message Interface Template"""
 
     direction: Literal["in", "out"]
