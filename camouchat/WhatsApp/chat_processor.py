@@ -6,6 +6,7 @@ import logging
 import random
 from typing import Dict, List, Optional
 
+import weakref
 from playwright.async_api import Page, ElementHandle, Locator
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
@@ -19,11 +20,26 @@ from camouchat.WhatsApp.web_ui_config import WebSelectorConfig
 class ChatProcessor(ChatProcessorInterface):
     """Fetches and manages WhatsApp chats from the Web UI."""
 
+    _instances: weakref.WeakKeyDictionary[Page, ChatProcessor] = weakref.WeakKeyDictionary()
+    _initialized: bool = False
+
+    def __new__(cls, *args, **kwargs) -> ChatProcessor:
+        page = kwargs.get('page') or (args[0] if args else None)
+        if page is None:
+            return super(ChatProcessor, cls).__new__(cls)
+        if page not in cls._instances:
+            instance = super(ChatProcessor, cls).__new__(cls)
+            cls._instances[page] = instance
+        return cls._instances[page]
+
     def __init__(self, page: Page, log: logging.Logger, UIConfig: WebSelectorConfig):
+        if hasattr(self, "_initialized") and self._initialized:
+            return
         super().__init__(page=page, log=log, UIConfig=UIConfig)
         self.capabilities: Dict[str, bool] = {}
         if self.page is None:
             raise ValueError("page must not be None")
+        self._initialized = True
 
     async def fetch_chats(self, limit: int = 5, retry: int = 5) -> List[whatsapp_chat]:
         """Fetch visible chats from the sidebar."""

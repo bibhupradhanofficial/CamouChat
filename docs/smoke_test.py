@@ -4,8 +4,7 @@ from camouchat.BrowserManager import BrowserForgeCompatible
 from camouchat.BrowserManager import ProfileManager
 from camouchat.BrowserManager import ProfileInfo
 
-# TODO , ChatProcessor, MessageProcess , Login,  -> singleton class support, to fix redundant multi instances | calls by User
-#  To Prevent Account Ban made by Spam UI Extraction.
+# Steps to automate platforms via camouchat.
 
 # Step 1  : Understand & Create a Profile from BrowserManager's ProfileManager
 

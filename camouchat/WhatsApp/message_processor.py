@@ -8,6 +8,7 @@ import hmac
 import logging
 from typing import List, Optional, Sequence
 
+import weakref
 from playwright.async_api import Page
 
 from camouchat.Decorators.Chat_Click_decorator import ensure_chat_clicked
@@ -43,6 +44,22 @@ class MessageProcessor(MessageProcessorInterface):
       initialized.
     """
 
+    _instances: weakref.WeakKeyDictionary[Page, MessageProcessor] = weakref.WeakKeyDictionary()
+    _initialized: bool = False
+
+    def __new__(cls, *args, **kwargs) -> MessageProcessor:
+        # MessageProcessor takes page as 5th positional arg or keyword
+        page = kwargs.get('page') or (args[4] if len(args) > 4 else None)
+        if page is None:
+            # Fallback for when we might not have it yet or it's incorrectly passed
+            # But in this SDK it should be there.
+            return super(MessageProcessor, cls).__new__(cls)
+            
+        if page not in cls._instances:
+            instance = super(MessageProcessor, cls).__new__(cls)
+            cls._instances[page] = instance
+        return cls._instances[page]
+
     def __init__(
             self,
             storage_obj: Optional[StorageInterface],
@@ -53,6 +70,8 @@ class MessageProcessor(MessageProcessorInterface):
             UIConfig: WebSelectorConfig,
             encryption_key: Optional[bytes] = None,
     ) -> None:
+        if hasattr(self, "_initialized") and self._initialized:
+            return
         super().__init__(
             storage_obj=storage_obj,
             filter_obj=filter_obj,
@@ -81,6 +100,7 @@ class MessageProcessor(MessageProcessorInterface):
 
         if self.page is None:
             raise ValueError("page must not be None")
+        self._initialized = True
 
     def _hmac_chat_name(self, chat_name: str) -> str:
         """Return a stable HMAC-SHA256 hex digest of the chat name.

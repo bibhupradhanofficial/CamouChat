@@ -9,8 +9,9 @@ import re
 import shutil
 from pathlib import Path
 
+import weakref
 from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError, Locator
-from typing import Optional
+from typing import Optional, Dict
 from camouchat.Exceptions.whatsapp import LoginError
 from camouchat.Interfaces.login_interface import LoginInterface
 from camouchat.WhatsApp.web_ui_config import WebSelectorConfig
@@ -19,12 +20,27 @@ from camouchat.WhatsApp.web_ui_config import WebSelectorConfig
 class Login(LoginInterface):
     """Handles WhatsApp Web authentication via QR code or phone number."""
 
+    _instances: weakref.WeakKeyDictionary[Page, Login] = weakref.WeakKeyDictionary()
+    _initialized: bool = False
+
+    def __new__(cls, *args, **kwargs) -> Login:
+        page = kwargs.get('page') or (args[0] if args else None)
+        if page is None:
+            return super(Login, cls).__new__(cls)
+        if page not in cls._instances:
+            instance = super(Login, cls).__new__(cls)
+            cls._instances[page] = instance
+        return cls._instances[page]
+
     def __init__(self, page: Page, UIConfig: WebSelectorConfig, log: logging.Logger):
+        if hasattr(self, "_initialized") and self._initialized:
+            return
         if page is None:
             raise ValueError("page must not be None")
 
         super().__init__(page=page, UIConfig=UIConfig, log=log)
         self.UIConfig: WebSelectorConfig = UIConfig
+        self._initialized = True
 
     async def is_login_successful(self, **kwargs) -> bool:
         """Verify if login was successful by checking for chat list visibility."""
