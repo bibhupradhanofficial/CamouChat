@@ -59,12 +59,12 @@ capabilities with solving all the other issues that those browser automation lib
 
 **Using `uv` (Recommended)**:
 ```bash
-uv pip install src
+uv pip install .
 ```
 
 **Or Using `pip`**:
 ```bash
-pip install src
+pip install .
 ```
 
 **Then : install playwright & camoufox update**

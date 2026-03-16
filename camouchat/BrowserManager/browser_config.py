@@ -25,11 +25,11 @@ class BrowserConfig:
     def from_dict(cls, data: Dict) -> BrowserConfig:
         """dict should expose exact same name in the above given params."""
         return cls(
-            platform=data["platform"],
-            locale=data["locale"] or "en-US",
-            enable_cache=data["enable_cache"] or False,
-            headless=data["headless"] or False,
-            prefs=data["prefs"] or {},
-            addons=data["addons"] or [],
+            platform=data.get("platform", Platform.WHATSAPP),
+            locale=data.get("locale", "en-US"),
+            enable_cache=data.get("enable_cache", False),
+            headless=data.get("headless", False),
+            prefs=data.get("prefs", {}),
+            addons=data.get("addons", []),
             fingerprint_obj=data["fingerprint_obj"],
         )

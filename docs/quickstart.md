@@ -1,138 +1,119 @@
 # ⚡ Quick Start
 
-This guide covers basic and advanced examples to help you get started with the new **CamouChat** architecture quickly featuring the Profile Manager, Sandboxing, and Async DB integrations.
+This guide covers basic and advanced examples to help you get started with the new **CamouChat** architecture featuring Profile Manager, Sandboxing, and Async DB integrations.
 
-## Basic: Fetch Chats
+For detailed module-specific guides, check out:
+- [BrowserManager QuickStart 🚀](./BrowserManager/quickstart.md) - Learn about profile creation and stealth browsers.
+- [WhatsApp QuickStart 💬](./WhatsApp/quickstart.md) - Build your first WhatsApp bot.
+
+---
+
+## Basic: Fetch Visible Chats
+
+This example shows how to launch a stealth browser, login to WhatsApp (QR), and list your active conversations.
 
 ```python
 import asyncio
 from camouchat.BrowserManager import ProfileManager, BrowserConfig, CamoufoxBrowser, Platform
 from camouchat.BrowserManager.browserforge_manager import BrowserForgeCompatible
-from camouchat.WhatsApp.login import Login
-from camouchat.WhatsApp.chat_processor import ChatProcessor
-from camouchat.WhatsApp.web_ui_config import WebSelectorConfig
-from camouchat.camouchat_logger import logger
-
+from camouchat.WhatsApp import Login, ChatProcessor, WebSelectorConfig
+from camouchat.camouchat_logger import camouchatLogger as logger
 
 async def main():
     # 1. Initialize Profile Manager and Create/Load Profile
     pm = ProfileManager()
-    profile = pm.create_profile(Platform.WHATSAPP, "my_session")
+    profile = pm.create_profile(Platform.WHATSAPP, "marketing_bot")
 
-    # 2. Configure Browser (Anti-detect Fingerprints mapped to your screen)
+    # 2. Configure Browser Stealth (Fingerprints matched to your hardware)
     fg_manager = BrowserForgeCompatible(log=logger)
-    config = BrowserConfig(
-        platform=Platform.WHATSAPP,
-        locale="en-US",
-        enable_cache=True,
-        headless=False,
-        fingerprint_obj=fg_manager
-    )
+    config_data = {
+        "platform": Platform.WHATSAPP,
+        "locale": "en-US",
+        "enable_cache": True,
+        "headless": False,
+        "fingerprint_obj": fg_manager.get_fg(profile=profile)
+    }
+    config = BrowserConfig.from_dict(config_data)
 
-    # 3. Launch Camoufox using Profile
+    # 3. Launch the Camoufox Stealth Browser
     browser = CamoufoxBrowser(config=config, profile=profile, log=logger)
     page = await browser.get_page()
 
-    # 4. Activate Profile (Handles Session Tracking & Locks)
-    pm.activate_profile(Platform.WHATSAPP, "my_session", browser)
-
-    # 5. Initialize UI config and Login
+    # 4. Initialize WhatsApp UI config and Login
     ui_config = WebSelectorConfig(page=page, log=logger)
     login = Login(page=page, UIConfig=ui_config, log=logger)
 
-    # Login (method=0 for QR, method=1 for Phone)
-    # Scan QR code on first run!
+    # method=0 for QR login (Scan the terminal/browser code!)
     await login.login(method=0)
 
-    # 6. Fetch chats
+    # 5. Fetch visible chats
     chat_processor = ChatProcessor(page=page, UIConfig=ui_config, log=logger)
-    async for chat, name in chat_processor.Fetcher(MaxChat=5):
-        print(f"📂 Chat: {name}")
-
-    # 7. Close gracefully and clean up profile lock
-    await pm.close_profile(Platform.WHATSAPP, "my_session")
-
+    chats = await chat_processor.fetch_chats(limit=5)
+    
+    for chat in chats:
+        print(f"📂 Chat Found: {chat.chat_name}")
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-## Advanced: Message Processing with Encrypted SQLAlchemy Storage
+---
+
+## Advanced: Secure Message Processing
+
+Demonstrates fetching messages from a specific chat and storing them into an **encrypted** local SQLite database.
 
 ```python
 import asyncio
-from camouchat.BrowserManager import ProfileManager, BrowserConfig, CamoufoxBrowser, Platform
-from camouchat.BrowserManager.browserforge_manager import BrowserForgeCompatible
-from camouchat.WhatsApp.login import Login
-from camouchat.WhatsApp.chat_processor import ChatProcessor
-from camouchat.WhatsApp.message_processor import MessageProcessor
-from camouchat.WhatsApp.web_ui_config import WebSelectorConfig
+from camouchat.BrowserManager import ProfileManager, BrowserConfig, CamoufoxBrowser, Platform, BrowserForgeCompatible
+from camouchat.WhatsApp import Login, ChatProcessor, MessageProcessor, WebSelectorConfig
 from camouchat.StorageDB import SQLAlchemyStorage
-from camouchat.camouchat_logger import logger
-
+from camouchat.camouchat_logger import camouchatLogger as logger
 
 async def main():
-    # 1. Profile Setup
-    pm = ProfileManager(app_name="CamouChat")
-    profile = pm.create_profile(Platform.WHATSAPP, "secure_session")
+    # 1. Setup sandboxed profile
+    pm = ProfileManager()
+    profile = pm.create_profile(Platform.WHATSAPP, "secure_vault")
 
-    # 2. Enable AES-256 Storage Encryption (Optional but highly recommended)
-    if not pm.is_encryption_enabled(Platform.WHATSAPP, "secure_session"):
-        encryption_key = pm.enable_encryption(Platform.WHATSAPP, "secure_session")
-        logger.info("🔑 Encryption Enabled!")
+    # 2. Retrieve AES-256 Key (Automatic creation if missing)
+    if not pm.is_encryption_enabled(Platform.WHATSAPP, "secure_vault"):
+        encryption_key = pm.enable_encryption(Platform.WHATSAPP, "secure_vault")
     else:
-        encryption_key = pm.get_key(Platform.WHATSAPP, "secure_session")
-        logger.info("🔑 Encryption Key Retrieved from profile")
+        encryption_key = pm.get_key(Platform.WHATSAPP, "secure_vault")
 
-    # 3. Init Browser & Activate Profile
+    # 3. Launch stealth browser
     fg_manager = BrowserForgeCompatible(log=logger)
     config = BrowserConfig(
         platform=Platform.WHATSAPP,
-        locale="en-US",
-        enable_cache=True,
-        headless=False,
-        fingerprint_obj=fg_manager
+        fingerprint_obj=fg_manager.get_fg(profile=profile),
+        headless=True  # Run in background
     )
-
     browser = CamoufoxBrowser(config=config, profile=profile, log=logger)
     page = await browser.get_page()
-    pm.activate_profile(Platform.WHATSAPP, "secure_session", browser)
 
-    # 4. Login
+    # 4. Initialize Processors & Database
     ui_config = WebSelectorConfig(page=page, log=logger)
-    login = Login(page=page, UIConfig=ui_config, log=logger)
-    await login.login(method=0)
-
-    # 5. Configure Async SQLAlchemy Storage using Profile path
     queue = asyncio.Queue()
     storage = SQLAlchemyStorage.from_profile(profile=profile, queue=queue, log=logger)
 
     async with storage:
-        # Initialize processors
-        chat_processor = ChatProcessor(page=page, UIConfig=ui_config, log=logger)
-        msg_processor = MessageProcessor(
+        chat_proc = ChatProcessor(page=page, UIConfig=ui_config, log=logger)
+        msg_proc = MessageProcessor(
+            storage_obj=storage,
+            filter_obj=None,
+            chat_processor=chat_proc,
             page=page,
-            UIConfig=ui_config,
-            chat_processor=chat_processor,
             log=logger,
-            storage=storage,  # Auto flush messages locally 
-            encryption_key=encryption_key  # Inject AES-256 key
+            UIConfig=ui_config,
+            encryption_key=encryption_key
         )
 
-        # 6. Fetch and process messages
-        async for chat, name in chat_processor.Fetcher(MaxChat=3):
-            print(f"\n📂 Processing: {name}")
-
-            # Fetcher automatically deduplicates and inserts into async queue
-            messages = await msg_processor.Fetcher(chat=chat, retry=3)
-
-            for msg in messages:
-                print(f"   💬 {msg.data_type}: {msg.raw_data[:50]}...")
-                print(f"      ID: {msg.message_id}")
-
-    # 7. Cleanup
-    await pm.close_profile(Platform.WHATSAPP, "secure_session")
-
+        # 5. Fetch and Save!
+        chats = await chat_proc.fetch_chats(limit=2)
+        for chat in chats:
+            print(f"\n📂 Archiving: {chat.chat_name}")
+            messages = await msg_proc.Fetcher(chat=chat, retry=3)
+            print(f"   ✅ Saved {len(messages)} messages to encrypted DB.")
 
 if __name__ == "__main__":
     asyncio.run(main())

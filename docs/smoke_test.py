@@ -84,7 +84,7 @@ b_config = BrowserConfig.from_dict(bdict)
 # Get the Browser obj.
 # Import the CamoufoxBrowser , this is integrated & Customized for our camouchat usage.
 
-# Import camouchatlogger from Custom_logger
+# Import camouchatlogger from camouchat_logger
 browser = CamoufoxBrowser(
     # It takes 3 parameter & All are REQUIRED PARAMETER:
     config=b_config,
