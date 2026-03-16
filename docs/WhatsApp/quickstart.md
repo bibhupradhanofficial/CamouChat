@@ -108,6 +108,36 @@ async def capture_messages(page, chat_proc):
         
         for msg in messages:
             print(f"[{msg.direction}] {msg.raw_data}")
+
+---
+
+### Step 4: Advanced Operations (Replying & Media) 🚀
+
+Expand your bot's capabilities with targeted replies and file uploads.
+
+```python
+from camouchat.WhatsApp import ReplyCapable, MediaCapable, HumanizedOperations
+from camouchat.Interfaces.media_capable_interface import MediaType, FileTyped
+
+async def advanced_ops(page, chat_proc, target_chat):
+    ui_config = WebSelectorConfig(page=page, log=camouchatLogger)
+    humanizer = HumanizedOperations(page=page, log=camouchatLogger)
+    
+    # Replying to a message
+    reply_handler = ReplyCapable(page=page, log=camouchatLogger, UIConfig=ui_config)
+    # assuming 'target_msg' was fetched from msg_proc.Fetcher
+    await reply_handler.reply(message=target_msg, humanize=humanizer, text="I received your message!")
+
+    # Sending an image
+    media_handler = MediaCapable(page=page, log=camouchatLogger, UIConfig=ui_config)
+    await media_handler.add_media(
+        mtype=MediaType.IMAGE, 
+        file=FileTyped(uri="/absolute/path/to/image.png")
+    )
+```
+
+> [!NOTE]
+> For in-depth details, see [ReplyCapable Guide](./ReplyCapable.md) and [MediaCapable Guide](./MediaCapable.md).
 ```
 
 ---
