@@ -47,7 +47,12 @@ class ChatProcessor(ChatProcessorInterface):
         self._initialized = True
 
     async def fetch_chats(self, limit: int = 5, retry: int = 5) -> list[whatsapp_chat]:  # type: ignore[override]
-        """Fetch visible chats from the sidebar."""
+        """
+        Fetch visible chats from the sidebar.
+
+        :param limit: maximum number of chats to fetch
+        :param retry: number of times to retry the request
+        """
         ChatList: List[whatsapp_chat] = await self._get_Wrapped_Chat(limit=limit, retry=retry)
 
         if not ChatList:
