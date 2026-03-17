@@ -55,7 +55,7 @@ Instead of competing on raw API speed, CamouChat focuses on building a **stable 
 
 ---
 
-## Key Benefits
+## Key Benefits --------------------------
 
 1. **Anti-Detection Browser Layer**  
    Built on [[**Camoufox**]](https://github.com/daijro/camoufox), a patched Playwright-based Firefox with stealth-oriented capabilities.
@@ -118,7 +118,7 @@ CamouChat is built with a clear direction:
 ---
 
 
-## 📦 Installation
+##  --------------------------  Installation -------------------------- 
 
 ### Using `uv` (Recommended)
 
@@ -153,7 +153,7 @@ python -m camoufox fetch
 
 ---
 
-## ⚡ Quick Start
+## --------------------------  Quick Start -------------------------- 
 
 👉 **Quick Start Guides**: [[**docs**]](https://github.com/BITS-Rohit/tweakio-sdk/tree/main/docs)
 
@@ -161,7 +161,7 @@ Whether you need basic chat fetching, multi-profile anti-detect sessions, or adv
 
 ---
 
-### 🗺️ Roadmap
+### 🗺 Roadmap ---------------------------------------------------- 
 Currently on [[**v0.6**]](docs/Series/v_0_6x.md)
 ### v0.6 — Core Infrastructure : [[docs]](docs/Series/v_0_6x.md)
 
@@ -185,7 +185,7 @@ Currently on [[**v0.6**]](docs/Series/v_0_6x.md)
 
 ---
 
-### ❓ FAQ
+### -------------------------- FAQ -------------------------- 
 
 **Q: Will I get banned?**  
 A: It is rare but can happen on the least. Some preventions is that always use rate limiter given by the sdk. Dont spam. It uses Patched Browser so even if have to be done something it will be a soft ban [Soft ban : Browser gets logged out Not direct number ban : Tested with real numbers.]. Still if u have a spare account use that first for 100% safe.
@@ -199,13 +199,13 @@ Also limited behavior.We automate the web itself. **-- Free and Open Source**
 
 ---
 
-### 📄 License
+### --------------------------  License -------------------------- 
 
 MIT License — see [[**LICENSE**]](LICENSE)
 
 ---
 
-## ⚠️ Security & Usage Guidelines
+## ⚠ Security & Usage Guidelines -------------------------- 
 
 CamouChat is intended for **educational, research, and controlled automation use cases**.  
 By using this SDK, you agree to use it responsibly and in compliance with applicable laws and platform policies.
@@ -261,10 +261,18 @@ By using this SDK, you agree to use it responsibly and in compliance with applic
 
 ---
 
-### Ethical Use
+### Ethical Use -------------------------- 
 
 > CamouChat is designed to assist development and automation workflows.  
 > It should not be used to exploit, abuse, or disrupt platforms or users.
 
 
+---
+
+---
+
 _Built with ❤️ by BITS-Rohit and the [[**CamouChat**]](https://github.com/BITS-Rohit/tweakio-sdk) community_
+
+---
+
+---
