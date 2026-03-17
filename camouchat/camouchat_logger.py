@@ -23,6 +23,10 @@ class JSONFormatter(logging.Formatter):
     """Formatter that outputs log records as JSON objects."""
 
     def format(self, record: logging.LogRecord) -> str:
+        """
+        Formats the LogRecord as a JSON string, including standard fields
+        and any custom contextual information like profile_id.
+        """
         log_record = {
             "timestamp": self.formatTime(record, self.datefmt),
             "level": record.levelname,
@@ -48,6 +52,10 @@ class CamouChatLoggerAdapter(logging.LoggerAdapter):
     """
 
     def process(self, msg: Any, kwargs: Any) -> tuple[Any, Any]:
+        """
+        Process the logging message and keyword arguments passed to the logging call
+        to insert contextual information (extra).
+        """
         extra = dict(self.extra) if self.extra else {}
         if "extra" in kwargs:
             extra.update(kwargs["extra"])
@@ -84,20 +92,21 @@ CONSOLE_FORMAT = (
 # -------------------------------
 # Console handler
 # -------------------------------
-if not _has_stream_handler(logger):
-    console_formatter = ColoredFormatter(
-        CONSOLE_FORMAT,
-        log_colors={
-            "DEBUG": "cyan",
-            "INFO": "green",
-            "WARNING": "yellow",
-            "ERROR": "red",
-            "CRITICAL": "bold_red",
-        },
-    )
+console_formatter = ColoredFormatter(
+    CONSOLE_FORMAT,
+    log_colors={
+        "DEBUG": "cyan",
+        "INFO": "green",
+        "WARNING": "yellow",
+        "ERROR": "red",
+        "CRITICAL": "bold_red",
+    },
+)
 
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(console_formatter)
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(console_formatter)
+
+if not _has_stream_handler(logger):
     logger.addHandler(console_handler)
 
 # -------------------------------
