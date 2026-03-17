@@ -6,7 +6,9 @@ Any browser implementation (Camoufox, Playwright, etc.) must implement this.
 """
 
 from abc import ABC, abstractmethod
-
+from logging import Logger, LoggerAdapter
+from typing import Optional, Union
+from camouchat.camouchat_logger import camouchatLogger
 from playwright.async_api import BrowserContext, Page
 
 
@@ -16,6 +18,9 @@ class BrowserInterface(ABC):
 
     Implementations handle browser initialization, page management, and cleanup.
     """
+
+    def __init__(self, log : Optional[Union[Logger,LoggerAdapter]] ):
+        self.log = log or camouchatLogger
 
     @abstractmethod
     async def get_instance(self) -> BrowserContext:

@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
-import logging
 import random
 import weakref
-from typing import Optional
+from logging import Logger, LoggerAdapter
+from typing import Optional, Union
 
 from playwright.async_api import Page, Locator, Position
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
-from camouchat.WhatsApp.humanized_operations import HumanizedOperations
 from camouchat.Exceptions.whatsapp import ReplyCapableError
 from camouchat.Interfaces.reply_capable_interface import ReplyCapableInterface
-from camouchat.WhatsApp.web_ui_config import WebSelectorConfig
+from camouchat.WhatsApp.humanized_operations import HumanizedOperations
 from camouchat.WhatsApp.models.message import Message
+from camouchat.WhatsApp.web_ui_config import WebSelectorConfig
 
 
 class ReplyCapable(ReplyCapableInterface):
@@ -32,7 +32,11 @@ class ReplyCapable(ReplyCapableInterface):
             cls._instances[page] = instance
         return cls._instances[page]
 
-    def __init__(self, page: Page, log: logging.Logger, UIConfig: WebSelectorConfig):
+    def __init__(
+            self,
+            page: Page,
+            UIConfig: WebSelectorConfig,
+            log: Optional[Union[LoggerAdapter, Logger]] = None) -> None:
         if hasattr(self, "_initialized") and self._initialized:
             return
         super().__init__(page=page, log=log, UIConfig=UIConfig)
@@ -41,11 +45,11 @@ class ReplyCapable(ReplyCapableInterface):
         self._initialized = True
 
     async def reply(
-        self,
-        message: Message,  # type: ignore[override]
-        humanize: HumanizedOperations,  # type: ignore[override]
-        text: Optional[str],
-        **kwargs,
+            self,
+            message: Message,  # type: ignore[override]
+            humanize: HumanizedOperations,  # type: ignore[override]
+            text: Optional[str],
+            **kwargs,
     ) -> bool:
         """Reply to a message with optional text."""
         try:

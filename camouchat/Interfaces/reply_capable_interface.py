@@ -1,8 +1,9 @@
 """Abstract base class for reply functionality."""
 
-import logging
+from logging import Logger, LoggerAdapter
+from camouchat.camouchat_logger import camouchatLogger
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Union
 
 from playwright.async_api import Page
 
@@ -15,10 +16,10 @@ class ReplyCapableInterface(ABC):
     """Base interface for message reply operations."""
 
     def __init__(
-        self, page: Page, log: logging.Logger, UIConfig: WebUISelectorCapable, **kwargs
+        self, page: Page,  UIConfig: WebUISelectorCapable,log: Optional[Union[Logger,LoggerAdapter]], **kwargs
     ) -> None:
         self.page = page
-        self.log = log
+        self.log = log or camouchatLogger
         self.UIConfig = UIConfig
 
     @abstractmethod

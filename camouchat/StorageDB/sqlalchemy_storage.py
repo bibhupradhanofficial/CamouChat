@@ -6,9 +6,8 @@ Uses async operations for non-blocking performance.
 from __future__ import annotations
 
 import asyncio
-import logging
-import weakref
-from typing import List, Dict, Any, Optional, Sequence
+from logging import Logger, LoggerAdapter
+from typing import List, Dict, Any, Optional, Sequence, Union
 
 from sqlalchemy import select, exists
 from sqlalchemy.exc import IntegrityError
@@ -57,7 +56,7 @@ class SQLAlchemyStorage(StorageInterface):
     def __init__(
             self,
             queue: asyncio.Queue,
-            log: logging.Logger,
+            log: Optional[Union[Logger, LoggerAdapter]] = None,
             database_url: str = "sqlite+aiosqlite:///messages.db",
             batch_size: int = 50,
             flush_interval: float = 2.0,
@@ -77,6 +76,7 @@ class SQLAlchemyStorage(StorageInterface):
             echo: Enable SQL query logging (for debugging)
         """
         super().__init__(queue=queue, log=log)
+
         self.database_url = database_url
         self._initialized = True
         self.batch_size = batch_size

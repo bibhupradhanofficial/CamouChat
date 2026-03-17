@@ -5,9 +5,9 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
-import logging
 import weakref
-from typing import List, Optional, Sequence
+from logging import Logger, LoggerAdapter
+from typing import List, Optional, Sequence, Union
 
 from playwright.async_api import Page
 
@@ -62,11 +62,11 @@ class MessageProcessor(MessageProcessorInterface):
             self,
             chat_processor: ChatProcessor,
             page: Page,
-            log: logging.Logger,
             ui_config: WebSelectorConfig,
             storage_obj: Optional[StorageInterface] = None,
             filter_obj: Optional[MessageFilter] = None,
             encryption_key: Optional[bytes] = None,
+            log: Optional[Union[Logger, LoggerAdapter]] = None
     ) -> None:
         if hasattr(self, "_initialized") and self._initialized:
             return

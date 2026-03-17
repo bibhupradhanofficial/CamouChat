@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-import logging
+from logging import Logger, LoggerAdapter
+from camouchat.camouchat_logger import camouchatLogger
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Sequence
+from typing import List, Dict, Any, Sequence, Optional, Union
 
 from camouchat.Interfaces.message_interface import MessageInterface
 
@@ -18,7 +19,7 @@ class StorageInterface(ABC):
     this interface to ensure consistent behavior across the SDK.
     """
 
-    def __init__(self, queue: asyncio.Queue, log: logging.Logger, **kwargs) -> None:
+    def __init__(self, queue: asyncio.Queue, log: Optional[Union[Logger,LoggerAdapter]]=None, **kwargs) -> None:
         """
         Initialize storage with a queue for batch operations.
 
@@ -28,7 +29,7 @@ class StorageInterface(ABC):
             **kwargs: Additional implementation-specific options
         """
         self.queue = queue
-        self.log = log
+        self.log = log or camouchatLogger
 
     @abstractmethod
     async def init_db(self, **kwargs) -> None:

@@ -6,11 +6,11 @@ that match the system's actual screen dimensions.
 """
 
 import json
-import logging
+from logging import Logger, LoggerAdapter
 import os
 import pickle
 from pathlib import Path
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Union
 
 from browserforge.fingerprints import Fingerprint, FingerprintGenerator
 
@@ -27,11 +27,12 @@ class BrowserForgeCompatible(BrowserForgeCapable):
     Reuses existing fingerprints from disk when available.
     """
 
-    def __init__(self, log: Optional[logging.Logger] = None) -> None:
-        self.log = log
-
+    def __init__(self, log: Optional[Union[Logger, LoggerAdapter]] = None) -> None:
         if log is None:
-            raise BrowserException("log not given in BrowserForgeCompatible")
+            from camouchat.camouchat_logger import camouchatLogger
+            self.log = camouchatLogger
+        else:
+            self.log = log
 
     def get_fg(self, profile: ProfileInfo) -> Fingerprint:
         """

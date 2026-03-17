@@ -2,10 +2,10 @@
 
 __version__ = "0.6"
 
-from camouchat_logger import CamouChatLogger
+from camouchat_logger import camouchatLogger
 from directory import DirectoryManager
 
 __all__ = [
-    'CamouChatLogger',
+    'camouchatLogger',
     'DirectoryManager'
 ]

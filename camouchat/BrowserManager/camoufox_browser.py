@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import logging
 import os
+from logging import Logger, LoggerAdapter
 from typing import Optional, Dict, Union
 
 import camoufox.exceptions
@@ -11,10 +11,10 @@ from browserforge.fingerprints import Fingerprint
 from camoufox.async_api import AsyncCamoufox, launch_options
 from playwright.async_api import Page, BrowserContext
 
+from camouchat.BrowserManager.browser_config import BrowserConfig
 from camouchat.BrowserManager.profile_info import ProfileInfo
 from camouchat.Exceptions.base import BrowserException
 from camouchat.Interfaces.browser_interface import BrowserInterface
-from camouchat.BrowserManager.browser_config import BrowserConfig
 
 
 class CamoufoxBrowser(BrowserInterface):
@@ -29,10 +29,10 @@ class CamoufoxBrowser(BrowserInterface):
     Map: Dict[int, BrowserContext] = {}
 
     def __init__(
-        self,
-        config: BrowserConfig,
-        profile: ProfileInfo,
-        log: Union[logging.Logger, logging.LoggerAdapter],
+            self,
+            config: BrowserConfig,
+            profile: ProfileInfo,
+            log: Optional[Union[Logger, LoggerAdapter]] = None,
     ) -> None:
         """
         :param cache_dir_path: saves the browser cache dir
@@ -47,15 +47,11 @@ class CamoufoxBrowser(BrowserInterface):
         :param enable_cache: good for when debugging, makes the browser to remember last/forward visited pages.
         Default is True .
         """
+        super().__init__(log=log)
         self.config = config
         self.profile = profile
-        self.BrowserForge = config.fingerprint_obj  # streamline the same flow
+        self.BrowserForge = config.fingerprint_obj
         self.browser: Optional[BrowserContext] = None
-        self.log = log
-
-        # Path compulsory. If user want to specific , they can. Else can use from directory.py
-        if self.log is None:
-            raise BrowserException("Logger is missing from the browser instance.")
 
         if self.BrowserForge is None:
             raise BrowserException("BrowserForge is missing from the browser instance.")
@@ -76,7 +72,7 @@ class CamoufoxBrowser(BrowserInterface):
             self.browser = await self.__GetBrowser__()
             pid = os.getpid()
             self.Map[pid] = self.browser
-            self.profile.last_active_pid = pid  # keep in-memory snapshot in sync
+            self.profile.last_active_pid = pid  # in-memory snapshot in sync
         return self.browser
 
     async def __GetBrowser__(self, tries: int = 1) -> BrowserContext:

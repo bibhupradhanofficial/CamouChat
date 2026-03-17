@@ -1,9 +1,11 @@
 """All the Humanized Operation Interface modules"""
 
 from abc import ABC, abstractmethod
+from typing import Optional, Union
 
 from playwright.async_api import Page
-import logging
+from logging import Logger, LoggerAdapter
+from camouchat.camouchat_logger import camouchatLogger
 
 from camouchat.Interfaces.web_ui_selector import WebUISelectorCapable
 
@@ -15,10 +17,10 @@ class HumanizeOperationInterface(ABC):
 
     @abstractmethod
     def __init__(
-        self, page: Page, log: logging.Logger, UIConfig: WebUISelectorCapable, **kwargs
+        self, page: Page, log: Optional[Union[Logger,LoggerAdapter]], UIConfig: WebUISelectorCapable, **kwargs
     ) -> None:
         self.page = page
-        self.log = log
+        self.log = log or camouchatLogger
         self.UIConfig = UIConfig
 
     @abstractmethod

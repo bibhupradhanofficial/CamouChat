@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import random
 import weakref
+from logging import Logger, LoggerAdapter
 from pathlib import Path
+from typing import Optional, Union
+
 from playwright.async_api import Page, Locator, FileChooser, TimeoutError as PlaywrightTimeoutError
 
 from camouchat.Exceptions.whatsapp import MenuError, MediaCapableError, WhatsAppError
@@ -29,7 +31,7 @@ class MediaCapable(MediaCapableInterface):
             cls._instances[page] = instance
         return cls._instances[page]
 
-    def __init__(self, page: Page, log: logging.Logger, UIConfig: WebSelectorConfig):
+    def __init__(self, page: Page, UIConfig: WebSelectorConfig, log: Optional[Union[Logger, LoggerAdapter]] = None):
         if hasattr(self, "_initialized") and self._initialized:
             return
         super().__init__(page=page, log=log, UIConfig=UIConfig)

@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-import logging
-import random
 import asyncio
 import os
+import random
 import tempfile
 import weakref
-from filelock import FileLock
+from logging import Logger, LoggerAdapter
 from typing import Union, Optional
 
 import pyperclip
+from filelock import FileLock
 from playwright.async_api import Page, ElementHandle, Locator
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError, Error as PlaywrightError
 
@@ -40,9 +40,16 @@ class HumanizedOperations(HumanizeOperationInterface):
             cls._instances[page] = instance
         return cls._instances[page]
 
-    def __init__(self, page: Page, log: logging.Logger, UIConfig: WebUISelectorCapable):
+    def __init__(
+            self,
+            page: Page,
+            UIConfig: WebUISelectorCapable,
+            log: Optional[Union[Logger, LoggerAdapter]] = None
+    ) -> None:
+
         if hasattr(self, "_initialized") and self._initialized:
             return
+
         super().__init__(page=page, log=log, UIConfig=UIConfig)
         if self.page is None:
             raise ValueError("page must not be None")
@@ -86,7 +93,7 @@ class HumanizedOperations(HumanizeOperationInterface):
             return await self._Instant_fill(text=text, source=source)
 
     async def _Instant_fill(
-        self, text: str, source: Optional[Union[ElementHandle, Locator]]
+            self, text: str, source: Optional[Union[ElementHandle, Locator]]
     ) -> bool:
         """Fallback to instant fill when typing fails."""
         if not source:

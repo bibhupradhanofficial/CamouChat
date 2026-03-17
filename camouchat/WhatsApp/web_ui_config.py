@@ -8,7 +8,7 @@ Conventions:
 """
 
 import re
-import logging
+from logging import Logger, LoggerAdapter
 from typing import Union, Optional
 
 from playwright.async_api import ElementHandle, Locator, Page
@@ -19,7 +19,7 @@ from camouchat.Interfaces.web_ui_selector import WebUISelectorCapable
 class WebSelectorConfig(WebUISelectorCapable):
     """Generic Custom Class , Different from every Platform"""
 
-    def __init__(self, page: Page, log: logging.Logger):
+    def __init__(self, page: Page, log: Optional[Union[Logger, LoggerAdapter]] = None) -> None:
         super().__init__(page=page, log=log)
         if self.page is None:
             raise ValueError("page must not be None")
@@ -359,9 +359,9 @@ class WebSelectorConfig(WebUISelectorCapable):
     async def isSticker(message: ElementHandle) -> bool:
         """Returns True if any sticker type is detected using XPath."""
         return (
-            await WebSelectorConfig.is_animated_sticker(message)
-            or await WebSelectorConfig.is_plain_sticker(message)
-            or await WebSelectorConfig.is_lottie_animation_sticker(message)
+                await WebSelectorConfig.is_animated_sticker(message)
+                or await WebSelectorConfig.is_plain_sticker(message)
+                or await WebSelectorConfig.is_lottie_animation_sticker(message)
         )
 
     # -------------------- Quoted Message Utilities -------------------- #

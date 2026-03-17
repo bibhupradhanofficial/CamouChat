@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import logging
 import random
 import weakref
-from typing import Dict, List, Optional
+from logging import Logger, LoggerAdapter
+from typing import Dict, List, Optional, Union
 
 from playwright.async_api import Page, ElementHandle, Locator
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
@@ -37,10 +37,19 @@ class ChatProcessor(ChatProcessorInterface):
             cls._instances[page] = instance
         return cls._instances[page]
 
-    def __init__(self, page: Page, log: logging.Logger, ui_config: WebSelectorConfig):
+    def __init__(
+            self,
+            page: Page,
+            ui_config: WebSelectorConfig,
+            log: Optional[Union[Logger, LoggerAdapter]] = None
+    ) -> None:
         if hasattr(self, "_initialized") and self._initialized:
             return
-        super().__init__(page=page, log=log, UIConfig=ui_config)
+        super().__init__(
+            page=page,
+            log=log,
+            ui_config=ui_config
+        )
         self.capabilities: Dict[str, bool] = {}
         if self.page is None:
             raise ValueError("page must not be None")

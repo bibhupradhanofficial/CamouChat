@@ -11,7 +11,7 @@ from camouchat.BrowserManager.camoufox_browser import CamoufoxBrowser
 from camouchat.BrowserManager.platform_manager import Platform
 from camouchat.BrowserManager.profile_info import ProfileInfo
 
-
+# Todo Add Logger functionality
 class ProfileManager:
     """Manager / entry point for profile creation, activation, and key management.
 

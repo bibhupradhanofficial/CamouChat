@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import logging
+from logging import Logger, LoggerAdapter
+from camouchat.camouchat_logger import camouchatLogger
 from abc import ABC, abstractmethod
-from typing import List, Optional, TypeVar
+from typing import List, Optional, TypeVar, Union
 
 from playwright.async_api import Page
 
@@ -22,15 +23,16 @@ class MessageProcessorInterface(ABC):
 
     def __init__(
         self,
-        log: logging.Logger,
+
         page: Page,
         UIConfig: WebSelectorConfig,
-        storage_obj: Optional[StorageInterface] = None,
-        filter_obj: Optional[MessageFilter] = None,
+        storage_obj: StorageInterface ,
+        filter_obj: MessageFilter ,
+        log: Optional[Union[LoggerAdapter, Logger]]
     ):
         self.storage = storage_obj
         self.filter = filter_obj
-        self.log = log
+        self.log = log or camouchatLogger
         self.page = page
         self.UIConfig = UIConfig
 
