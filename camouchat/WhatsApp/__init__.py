@@ -9,7 +9,7 @@ from .chat_processor import ChatProcessor
 from .login import Login
 from .message_processor import MessageProcessor
 from .media_capable import MediaCapable
-from .humanized_operations import HumanizedOperations
+from .human_interaction_controller import HumanInteractionController
 from .web_ui_config import WebSelectorConfig
 from .reply_capable import ReplyCapable
 
@@ -18,7 +18,7 @@ __all__ = [
     "Login",
     "MessageProcessor",
     "MediaCapable",
-    "HumanizedOperations",
+    "HumanInteractionController",
     "ReplyCapable",
     "WebSelectorConfig",
 ]

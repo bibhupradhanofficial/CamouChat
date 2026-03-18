@@ -16,7 +16,7 @@ from playwright.async_api import Page, ElementHandle, Locator
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError, Error as PlaywrightError
 
 from camouchat.Exceptions.base import ElementNotFoundError, HumanizedOperationError
-from camouchat.Interfaces.humanize_operation_interface import HumanizeOperationInterface
+from camouchat.Interfaces.human_interaction_controller_interface import HumanInteractionControllerInterface
 from camouchat.Interfaces.web_ui_selector import WebUISelectorCapable
 
 _clipboard_async_lock = asyncio.Lock()
@@ -25,18 +25,18 @@ _lock_file_path = os.path.join(tempfile.gettempdir(), "whatsapp_clipboard.lock")
 _clipboard_file_lock = FileLock(_lock_file_path)
 
 
-class HumanizedOperations(HumanizeOperationInterface):
+class HumanInteractionController(HumanInteractionControllerInterface):
     """Simulates human-like typing with variable delays."""
 
-    _instances: weakref.WeakKeyDictionary[Page, HumanizedOperations] = weakref.WeakKeyDictionary()
+    _instances: weakref.WeakKeyDictionary[Page, HumanInteractionController] = weakref.WeakKeyDictionary()
     _initialized: bool = False
 
-    def __new__(cls, *args, **kwargs) -> HumanizedOperations:
+    def __new__(cls, *args, **kwargs) -> HumanInteractionController:
         page = kwargs.get("page") or (args[0] if args else None)
         if page is None:
-            return super(HumanizedOperations, cls).__new__(cls)
+            return super(HumanInteractionController, cls).__new__(cls)
         if page not in cls._instances:
-            instance = super(HumanizedOperations, cls).__new__(cls)
+            instance = super(HumanInteractionController, cls).__new__(cls)
             cls._instances[page] = instance
         return cls._instances[page]
 
@@ -63,16 +63,13 @@ class HumanizedOperations(HumanizeOperationInterface):
         Kwargs:
             source: Target element (ElementHandle or Locator)
         """
-        source: Optional[Union[ElementHandle, Locator]] = kwargs.get("source") or None
+        source: Optional[Union[ElementHandle, Locator]] = kwargs.get("source")
+
         if not source:
             raise ElementNotFoundError("Source Element not found.")
 
         try:
-            await source.click(timeout=3000)
-            await source.press("Control+A")
-            await source.press("Backspace")
-
-            self.log.info(f"Cleared Previous text & Typing at source : {source}")
+            await self._ensure_clean_input(source)
 
             lines = text.split("\n")
 
@@ -87,10 +84,39 @@ class HumanizedOperations(HumanizeOperationInterface):
 
                     if i < len(lines) - 1:
                         await self.page.keyboard.press("Shift+Enter")
+
             return True
+
         except (PlaywrightTimeoutError, PlaywrightError) as e:
-            self.log.debug("Humanized typing failed, falling back to instant fill", exc_info=e)
+            self.log.debug("Typing failed → fallback to instant fill", exc_info=e)
             return await self._Instant_fill(text=text, source=source)
+
+    async def _ensure_clean_input(
+            self,
+            source: Union[ElementHandle, Locator],
+            retries: int = 3
+    ) -> None:
+
+        for attempt in range(1, retries + 1):
+            try:
+                text = await source.inner_text()
+
+                if text:
+                    await source.click(timeout=3000)
+                    await source.press("Control+A")
+                    await source.press("Backspace")
+
+                    self.log.debug(f"Cleared stale input: {text[:30]}")
+
+                return
+
+            except (PlaywrightTimeoutError, PlaywrightError) as e:
+                if attempt < retries:
+                    await asyncio.sleep(0.2 * attempt)
+                else:
+                    self.log.warning("Failed to clear input after retries")
+                    raise
+
 
     async def _Instant_fill(
             self, text: str, source: Optional[Union[ElementHandle, Locator]]

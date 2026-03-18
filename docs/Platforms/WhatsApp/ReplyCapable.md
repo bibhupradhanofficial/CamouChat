@@ -37,21 +37,21 @@ reply_handler = ReplyCapable(
 Replies to a specific message object using humanized typing.
 
 ```python
-from camouchat.WhatsApp import HumanizedOperations
+from camouchat.WhatsApp import HumanInteractionController
 
 # Initialize humanization for natural typing speeds
-humanizer = HumanizedOperations(page=page_obj, log=camouchatLogger)
+humanizer = HumanInteractionController(page=page_obj, log=camouchatLogger)
 
 # Assuming 'msg' is a whatsapp_message object from MessageProcessor.Fetcher
 success = await reply_handler.reply(
     message=msg,
     # ------------- Required Parameter -------------
     # The specific message object you want to reply to.
-    
+
     humanize=humanizer,
     # ------------- Required Parameter -------------
     # Handles the natural typing simulation.
-    
+
     text="This is a targeted reply! 🚀"
     # ------------- Required Parameter -------------
     # The response text.

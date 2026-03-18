@@ -121,29 +121,55 @@ class ChatProcessor(ChatProcessorInterface):
 
         raise ChatProcessorError("Unreachable state in chat extraction.")
 
-    async def _click_chat(self, chat: Optional[Chat], **kwargs) -> bool:  # type: ignore[override]
-        """Click on a chat to open it."""
-        try:
-            if not chat:
-                raise ChatNotFoundError("none passed , expected chat in click chat")
+    async def _click_chat(
+            self,
+            chat: Optional[Chat],
+            **kwargs
+    ) -> bool:  # type: ignore[override]
+        """Click on a chat with retry + exponential backoff."""
 
-            handle: Optional[ElementHandle] = (
-                await chat.chat_ui.element_handle(timeout=1500)
-                if isinstance(chat.chat_ui, Locator)
-                else chat.chat_ui if chat.chat_ui is not None else None
-            )
+        retries: int = kwargs.get("retries", 5)
+        base_delay: float = kwargs.get("base_delay", 0.5)
 
-            if handle is None:
-                raise ChatClickError(
-                    "Chat Object is Given None in WhatsApp chat loader / _click_chat"
+        if not chat:
+            raise ChatNotFoundError("None passed, expected Chat in _click_chat")
+
+        for attempt in range(1, retries + 1):
+            try:
+                handle: Optional[ElementHandle] = (
+                    await chat.chat_ui.element_handle(timeout=1500)
+                    if isinstance(chat.chat_ui, Locator)
+                    else chat.chat_ui if chat.chat_ui is not None else None
                 )
 
-            await handle.click(timeout=3500)
-            return True
-        except PlaywrightTimeoutError as e:
-            raise ChatClickError("Failed to click chat in time.") from e
-        except CamouChatError as e:
-            raise ChatClickError("Error in click the given chat.") from e
+                if handle is None:
+                    raise ChatClickError("Chat UI handle is None.")
+
+                await handle.click(timeout=5000)
+                return True
+
+            # Retryable
+            except PlaywrightTimeoutError as e:
+                if attempt < retries:
+                    delay = base_delay * (2 ** (attempt - 1))
+                    self.log.debug(
+                        f"[Retry {attempt}/{retries}] click_chat timeout → retrying in {delay:.2f}s"
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    self.log.error(f"Failed to click chat after {retries} retries.")
+                    raise ChatClickError("Failed to click chat in time.") from e
+
+            # rethrow
+            except CamouChatError:
+                raise
+
+            #Unexpected
+            except Exception as e:
+                self.log.error("Unexpected error in _click_chat", exc_info=True)
+                raise ChatClickError("Unexpected failure in _click_chat.") from e
+
+        raise ChatClickError("Unreachable state in _click_chat")
 
     @staticmethod
     async def is_unread(chat: Optional[Chat]) -> int:

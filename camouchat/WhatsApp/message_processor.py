@@ -218,7 +218,7 @@ class MessageProcessor(MessageProcessorInterface):
     ) -> List[Message]:
         """Fetch, optionally encrypt, store, and filter messages from a chat."""
 
-        msgList = await self._get_wrapped_Messages(chat, retry, *args, **kwargs)
+        msgList = await self._get_wrapped_Messages(chat, retry, **kwargs)
 
         # -----------------------------
         # Storage + Dedup

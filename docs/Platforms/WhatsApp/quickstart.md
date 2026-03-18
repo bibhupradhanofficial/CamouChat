@@ -123,13 +123,13 @@ bot
 's capabilities with targeted replies and file uploads.
 
 ```python
-from camouchat.WhatsApp import ReplyCapable, MediaCapable, HumanizedOperations
+from camouchat.WhatsApp import ReplyCapable, MediaCapable, HumanInteractionController
 from camouchat.Interfaces.media_capable_interface import MediaType, FileTyped
 
 
 async def advanced_ops(page, chat_proc, target_chat):
     ui_config = WebSelectorConfig(page=page, log=camouchatLogger)
-    humanizer = HumanizedOperations(page=page, log=camouchatLogger)
+    humanizer = HumanInteractionController(page=page, log=camouchatLogger)
 
     # Replying to a message
     reply_handler = ReplyCapable(page=page, log=camouchatLogger, ui_config=ui_config)

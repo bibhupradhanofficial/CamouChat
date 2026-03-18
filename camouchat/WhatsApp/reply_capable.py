@@ -12,7 +12,7 @@ from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from camouchat.Exceptions.whatsapp import ReplyCapableError
 from camouchat.Interfaces.reply_capable_interface import ReplyCapableInterface
-from camouchat.WhatsApp.humanized_operations import HumanizedOperations
+from camouchat.WhatsApp.human_interaction_controller import HumanInteractionController
 from camouchat.WhatsApp.models.message import Message
 from camouchat.WhatsApp.web_ui_config import WebSelectorConfig
 
@@ -47,7 +47,7 @@ class ReplyCapable(ReplyCapableInterface):
     async def reply(
             self,
             message: Message,  # type: ignore[override]
-            humanize: HumanizedOperations,  # type: ignore[override]
+            humanize: HumanInteractionController,  # type: ignore[override]
             text: Optional[str],
             **kwargs,
     ) -> bool:

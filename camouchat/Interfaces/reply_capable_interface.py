@@ -7,7 +7,7 @@ from typing import Optional, Union
 
 from playwright.async_api import Page
 
-from camouchat.Interfaces.humanize_operation_interface import HumanizeOperationInterface
+from camouchat.Interfaces.human_interaction_controller_interface import HumanInteractionControllerInterface
 from camouchat.Interfaces.message_interface import MessageInterface
 from camouchat.Interfaces.web_ui_selector import WebUISelectorCapable
 
@@ -26,7 +26,7 @@ class ReplyCapableInterface(ABC):
     async def reply(
         self,
         Message: MessageInterface,
-        humanize: HumanizeOperationInterface,
+        humanize: HumanInteractionControllerInterface,
         text: Optional[str],
         **kwargs,
     ) -> bool:

@@ -11,7 +11,7 @@ from playwright.async_api import Page, Locator, TimeoutError as PlaywrightTimeou
 
 from camouchat.Exceptions.whatsapp import ReplyCapableError
 from camouchat.WhatsApp.models.message import Message
-from camouchat.WhatsApp.humanized_operations import HumanizedOperations
+from camouchat.WhatsApp.human_interaction_controller import HumanInteractionController
 from camouchat.WhatsApp.reply_capable import ReplyCapable
 from camouchat.WhatsApp.web_ui_config import WebSelectorConfig
 
@@ -44,7 +44,7 @@ def reply_capable_instance(mock_page, mock_logger, mock_ui_config):
 
 @pytest.fixture
 def mock_humanize():
-    return Mock(spec=HumanizedOperations)
+    return Mock(spec=HumanInteractionController)
 
 
 # ============================================================================

@@ -10,7 +10,7 @@ from camouchat.camouchat_logger import camouchatLogger
 from camouchat.Interfaces.web_ui_selector import WebUISelectorCapable
 
 
-class HumanizeOperationInterface(ABC):
+class HumanInteractionControllerInterface(ABC):
     """
     All Humanized Altered Operation here.
     """
