@@ -1,100 +1,155 @@
-# 🔐 Login: Your Gateway to WhatsApp
+# 🔐 Login
 
-The `Login` class handles the authentication flow to get your profile connected to WhatsApp Web. Once you log in, your session is automatically saved to your `ProfileInfo`'s cache directory!
+`camouchat.WhatsApp.login`
 
-Like all core components, it uses a **Singleton-per-Page Pattern**, meaning it protects you from accidentally running multiple login scripts on the same connected browser page.
+The `Login` class is the authentication gateway to WhatsApp Web. It supports two methods: scanning a **QR code** or linking via a **phone number pairing code**. Once authenticated, the Camoufox persistent context saves the session in your profile's `cache_dir`, so you only need to log in **once per profile**.
+
+Like all WhatsApp components, `Login` enforces a **Singleton-per-Page pattern** — the same page will always return the same `Login` instance.
 
 ---
 
-### 🛠️ Setting up the Login
+## 🛠️ Constructor
 
-To initialize the `Login` handler, you need the same three components you use across the SDK: your `page`, your `UIConfig`, and your `logger`.
+```python
+Login(
+    page: Page,
+    UIConfig: WebSelectorConfig,
+    log: Optional[Union[Logger, LoggerAdapter]] = None,
+)
+```
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `page` | `Page` | ✅ Yes | The active async Playwright page. All interaction happens through this object. Async-only. |
+| `UIConfig` | `WebSelectorConfig` | ✅ Yes | The selector configuration object for this page. Provides locators for QR canvas, chat list, country selector, phone input, etc. |
+| `log` | `Logger \| LoggerAdapter` | ❌ No | Logger for login status messages and the pairing code printout. |
 
 ```python
 from camouchat.WhatsApp import Login, WebSelectorConfig
+from camouchat.camouchat_logger import camouchatLogger
 
-# Make sure you have your UI Config ready!
-ui_config_obj = WebSelectorConfig(page=page_obj, log=camouchatLogger)
+# Always create UIConfig first — it is the single source of DOM locators
+ui_config = WebSelectorConfig(page=page, log=camouchatLogger)
 
 login_obj = Login(
-    page=page_obj,
-    # ------------- Required Parameter -------------
-    # The active browser page instance. We support Asyncio only.
-
-    UIConfig=ui_config_obj,
-    # ------------- Required Parameter -------------
-    # Pass the UI Config object here so we know how to interact with the DOM.
-
-    log=camouchatLogger
-    # ------------- Required Parameter -------------
-    # Used for logging errors and the pairing code!
+    page=page,
+    UIConfig=ui_config,
+    log=camouchatLogger,
 )
 ```
 
-# --- Let's get logged in! ---
+---
 
-### 📦 Key Functions
+## 📦 Methods
 
-#### 1. `login(**kwargs)`
-This is the main function that handles both **QR Code Scanning** and **Phone Number Linking (Code-based)**.
+### `login(**kwargs) → bool`
+
+The main authentication method. Navigates to WhatsApp Web and orchestrates the chosen login flow. The browser session is automatically persisted to disk by Camoufox's `persistent_context`.
+
+| kwarg | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `method` | `int` | ✅ Yes | — | `0` = QR code login. `1` = Phone number pairing code login. |
+| `wait_time` | `int` | ❌ No | `180_000` | Maximum wait in milliseconds for the QR scan or code confirmation. |
+| `url` | `str` | ❌ No | `"https://web.whatsapp.com"` | WhatsApp Web URL to navigate to. Override only if you need a staging/proxy URL. |
+| `number` | `int` | ⚠️ Required if `method=1` | — | Your phone number **without** the country code (e.g., `9876543210`). |
+| `country` | `str` | ⚠️ Required if `method=1` | — | Country name as it appears in WhatsApp's dropdown (e.g., `"India"`, `"United States"`). |
+
+#### QR Code Login (method=0)
+
+The simplest method. Navigate to WhatsApp Web, then scan the QR code that appears with your phone.
 
 ```python
-# Here is how you do a Code-Based Login:
-
 success = await login_obj.login(
-    method=1,
-    # ------------- Required Parameter -------------
-    # 0 FOR QR BASED LOGIN.
-    # 1 FOR CODE BASED LOGIN.
-    # Note: It is only a 1-time setup for your profile; afterward, it will auto-save the session.
-    
-    number=1234567890,
-    # ------------- Required Parameter (If method=1) -------------
-    # No need to add the country code, just the local number.
-    
-    country="India",
-    # ------------- Required Parameter (If method=1) -------------
-    # The SDK will automatically type and select your country from the dropdown.
-    
-    wait_time=150_000,
-    # ------------- Optional Parameter -------------
-    # The time it waits for QR scan or Code to be processed. Defaults to 180_000 (180s).
-    
-    url="https://web.whatsapp.com"
-    # ------------- Optional Parameter -------------
-    # Optional URL if you need to override the default.
+    method=0,
+    wait_time=150_000,   # 150 seconds to scan the QR
 )
 
 if success:
-    print("Woohoo! We are logged in!")
+    print("✅ QR login successful!")
 ```
 
-> **A note on Code Based Login (method=1)**: 
-> If you choose to log in with your phone number, the SDK will print an 8-character code in your terminal. WhatsApp will send a notification to your phone. Tap it, and enter the code into your mobile app!
+**How it works internally**: The SDK waits for the `chat-list` element to become visible. Once visible, it confirms the QR code is gone (if WhatsApp still shows a QR, it raises `LoginError`).
 
----
+#### Phone Number / Pairing Code Login (method=1)
 
-#### 2. `is_login_successful(**kwargs)`
-Checks if the login was actually successful by waiting for the Chat List to become visible on the screen.
+Fills in the country selector and phone number, then waits for WhatsApp to display an 8-character pairing code. The code is printed to your terminal via the logger.
 
 ```python
-is_connected = await login_obj.is_login_successful(
-    timeout=10_000
-    # ------------- Optional Parameter -------------
-    # How long to wait for the UI to load (default: 10_000 ms).
+success = await login_obj.login(
+    method=1,
+    number=9876543210,     # Local number without country code
+    country="India",       # Must match WhatsApp's country dropdown exactly
+    wait_time=180_000,
 )
 ```
 
+> [!NOTE]
+> When `method=1` is used, check your terminal for the pairing code output. It will look like:
+> ```
+> INFO | WhatsApp Login Code: ABCD-1234
+> ```
+> Open WhatsApp on your phone → **Linked Devices** → **Link a Device** → enter the code.
+
 ---
 
-### 🚪 What about Logging Out?
+### `is_login_successful(**kwargs) → bool`
 
-The `Login` class does **NOT** have a `.logout()` method!
+Verifies that login succeeded by waiting for the chat list sidebar to become visible. Call this after `login()` to confirm before proceeding with automation.
 
-Since your sessions are isolated into `ProfileManager` sandboxes, there are two ways to securely log out:
+| kwarg | Type | Default | Description |
+|-------|------|---------|-------------|
+| `timeout` | `int` | `10_000` | Milliseconds to wait for the chat list (default: 10 seconds). |
 
-1.  **Delete the Profile**: Just delete the profile using `ProfileManager`. This wipes all cache, media, and session data entirely.
-    ```python
-    pm_obj.delete_profile(Platform.WHATSAPP, "Work")
-    ```
-2.  **Via the Mobile App**: Go to WhatsApp on your phone -> **Linked Devices** -> tap on the device -> **Log Out**. Next time your bot runs, it will simply ask to log in again!
+```python
+if await login_obj.is_login_successful(timeout=15_000):
+    print("✅ Connected to WhatsApp Web!")
+else:
+    print("❌ Login verification timed out.")
+```
+
+---
+
+## 🚪 Logging Out
+
+`Login` intentionally has **no `logout()` method**. Sessions are tied to Camoufox's persistent browser context, not a simple cookie. Two ways to log out:
+
+1. **Delete the profile** (wipes all data — use for complete cleanup):
+   ```python
+   pm.delete_profile(Platform.WHATSAPP, "MarketingBot")
+   ```
+
+2. **Via WhatsApp mobile app** (preferred — preserves profile data):  
+   WhatsApp → **Linked Devices** → tap the device → **Log Out**.  
+   The next time your bot runs, `login()` will prompt you to authenticate again.
+
+---
+
+## 🛡️ Error Handling
+
+All login failures raise subclasses of `LoginError` from `camouchat.Exceptions.whatsapp`:
+
+| Exception | When Raised |
+|-----------|-------------|
+| `LoginError("Timeout while loading WhatsApp Web")` | Page navigation timed out (60s). |
+| `LoginError("Invalid login method.")` | `method` is not `0` or `1`. |
+| `LoginError("QR login timeout.")` | User did not scan QR within `wait_time`. |
+| `LoginError("Login-with-phone-number button not found.")` | WhatsApp UI changed or page not loaded. |
+| `LoginError("Country '...' not selectable.")` | Country name not found in the dropdown — check spelling. |
+| `LoginError("Timeout while waiting for login code.")` | WhatsApp did not produce the pairing code in time. |
+
+```python
+from camouchat.Exceptions.whatsapp import LoginError
+
+try:
+    await login_obj.login(method=1, number=9876543210, country="India")
+except LoginError as e:
+    print(f"Login failed: {e}")
+```
+
+---
+
+## 💡 Pro Tips
+
+- **Humanized typing**: Country name and phone number are typed with randomized per-keystroke delays (80–120 ms) to avoid bot-detection during the login flow.
+- **Session reuse**: After the first login, you do **not** need to call `login()` on subsequent runs. The persistent context saved in `profile.cache_dir` keeps you connected until you log out or the session expires.
+- **Headless login**: Avoid logging in for the first time in headless mode — scanning QR codes or confirming pairing codes requires visual access. Set `headless=True` only in `BrowserConfig` after the initial authenticated session is established.

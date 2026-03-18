@@ -1,107 +1,167 @@
-# BrowserManager QuickStart Guide 🚀
+# BrowserManager QuickStart 🚀
 
-The `BrowserManager` module is the foundation of **CamouChat**. It handles sandboxed profile creation, fingerprinting, and browser lifecycle management.
+`camouchat.BrowserManager`
 
-Follow these steps to set up your isolated environment.
+The `BrowserManager` module is the foundation of **CamouChat**. It handles profile creation, browser fingerprinting, and the full Camoufox lifecycle. Follow these steps to launch an isolated, stealth browser session.
 
 ---
 
-### Step 1: Initialize the ProfileManager 🗃️
+## Step 1: Initialize the ProfileManager 🗃️
 
-The `ProfileManager` manages all your virtual browser identities on your disk.
+The `ProfileManager` is your disk-backed registry of all browser identities. Creating a profile sets up an isolated directory with its own cache, database, and fingerprint file.
 
 ```python
 from camouchat.BrowserManager import ProfileManager, Platform
 
-# Get a Object of ProfileManager
 pm = ProfileManager()
 
-# Create a Profile with a name u want to add for your profile
+# Idempotent — creates the profile on first call, returns existing on subsequent calls
 profile = pm.create_profile(
-    platform=Platform.WHATSAPP,
-    # ------------- This is a Required parameter -------------
-    # or Any Platform available in the Platform class
-    profile_id="MarketingBot",
-    # ------------- This is a Required parameter -------------
-    # This is your profile name for that platform.
+    platform=Platform.WHATSAPP,     # Required — determines the directory namespace
+    profile_id="MarketingBot",      # Required — your human-readable profile name
 )
 
-print(f"✅ Profile created at: {profile.profile_dir}")
+print(f"✅ Profile ready at: {profile.profile_dir}")
+print(f"   DB URL:           {profile.database_url}")
 ```
 
 > [!TIP]
-> Each profile gets its own unique fingerprint and cache directory, making them appear as completely different users/devices to websites.
+> Each `profile_id` maps to a fully isolated directory. `"MarketingBot"` and `"SupportBot"` will never share cookies, fingerprints, or message history — even if they run simultaneously on the same machine.
 
 ---
 
-### Step 2: Configure your Stealth Browser 🕵️‍♂️
+## Step 2: Generate a BrowserForge Fingerprint 🧬
 
-Next, we define how the browser should behave. We use `BrowserForge` to generate a fingerprint that exactly matches your real hardware specs to minimize detection.
+`BrowserForgeCompatible` generates a browser fingerprint that matches your machine's actual screen resolution (within 10% tolerance) and persists it to `fingerprint.pkl`. On subsequent runs, it reloads the saved fingerprint to maintain a **consistent browser identity** across sessions.
 
 ```python
-from camouchat.BrowserManager import BrowserConfig, BrowserForgeCompatible
+from camouchat.BrowserManager import BrowserForgeCompatible
 
-# Initialize the fingerprint generator
 bf = BrowserForgeCompatible()
 
-# Define the configuration dictionary
-config_data = {
-    "platform": Platform.WHATSAPP,
-    # ------------- This is Required Parameter -------------
-    "locale": "en-US",           
-    "headless": False,            # Only use True if u want to see Browser working as visible UI.
-    "enable_cache": True,        
-    "fingerprint_obj": bf.get_fg(profile=profile), 
-    # ------------- This is a Required Parameter -------------
-    # This Automatically uses the path in the dataclass given.
-    "prefs": {},                 
-    "addons": []                 
-}
+# get_fg() is called internally by CamoufoxBrowser at launch time.
+# You don't need to call it manually — just pass the bf instance to BrowserConfig.
+```
 
-# Create the config object
-browser_config = BrowserConfig.from_dict(config_data)
+> [!NOTE]
+> The fingerprint is always scoped to a profile via `bf.get_fg(profile=profile)`. Internally, if no fingerprint exists yet (empty `fingerprint.pkl`), it generates one. On subsequent runs, it loads the saved fingerprint. This consistency is what prevents "new device" detection on WhatsApp.
+
+---
+
+## Step 3: Configure the Browser ⚙️
+
+`BrowserConfig` holds all the Camoufox launch parameters. Use `from_dict()` for a clean configuration dictionary pattern.
+
+```python
+from camouchat.BrowserManager import BrowserConfig
+
+config = BrowserConfig.from_dict({
+    "platform": Platform.WHATSAPP,
+    # Required — tags this config with the target platform.
+
+    "locale": "en-US",
+    # Browser locale / Accept-Language header. Match your actual region.
+
+    "headless": False,
+    # False = invisible browser (recommended for production).
+    # True = visible browser window (useful for initial login / debugging).
+    # Note: ProfileManager.activate_profile() auto-sets this to True
+    # if another profile is already running.
+
+    "enable_cache": False,
+    # False = fresh DOM on every page load (recommended for production).
+    # True = reuse cached resources (useful for debugging slow connections).
+
+    "fingerprint_obj": bf,
+    # Pass the BrowserForgeCompatible INSTANCE (not the generated Fingerprint).
+    # The browser calls get_fg(profile) internally at launch time.
+
+    "prefs": {},
+    # Raw Firefox user preferences. Keep {} for stealth — custom prefs are detectable.
+
+    "addons": [],
+    # List of absolute paths to .xpi / .zip extension files to load on launch.
+})
 ```
 
 ---
 
-### Step 3: Launch the Camoufox Browser 🦊
+## Step 4: Launch the Camoufox Browser 🦊
 
-Bringing it all together. The `CamoufoxBrowser` is a customized, anti-detect version of Firefox built for high-stealth automation.
+Everything comes together in `CamoufoxBrowser`. It manages the full async browser lifecycle: launch, page creation, and cleanup.
 
 ```python
+import asyncio
 from camouchat.BrowserManager import CamoufoxBrowser
-from camouchat.camouchat_logger import CamouChatLogger
+from camouchat.camouchat_logger import camouchatLogger
 
-# Initialize the browser
 browser = CamoufoxBrowser(
-    # It takes 3 parameter & All are REQUIRED PARAMETER:
-    config=browser_config,
-    # This is the browser_config we just created earlier.
-    profile=profile,
-    # That profile goes here so that browser is saved & Isolated.
-    log=CamouChatLogger,
+    config=config,      # BrowserConfig we built above
+    profile=profile,    # The sandboxed ProfileInfo
+    log=camouchatLogger # Optional — defaults to camouchatLogger if omitted
 )
 
-
-# Launch and get our active page
 async def start_session():
-    # This page will be used throughout the platforms.
+    # get_page() auto-launches the browser if not already running.
+    # Reuses an existing blank tab to avoid unnecessary tab proliferation.
     page = await browser.get_page()
     await page.goto("https://web.whatsapp.com")
     print("🌐 Stealth browser is live!")
-
-
-import asyncio
 
 asyncio.run(start_session())
 ```
 
 ---
 
-### Key Takeaways 💡
+## Step 5: Activate the Profile (Optional but Recommended) ✅
 
-- **Isolation**: Each `profile_id` is a separate world. `MarketingBot` won't share cookies or cache with `PersonalBot`.
-- **Fingerprinting**: `BrowserForgeCompatible` ensures your browser "looks" real by spoofing hardware attributes realistically.
-- **Stealth**: `CamoufoxBrowser` automatically handles geo-ip checks and internal humanization.
+Calling `activate_profile()` writes the current PID to `metadata.json` and the `.lock` file so that `close_profile()` can find and gracefully shut down the browser later. It also enforces the headless rule for multi-profile scenarios.
 
-For advanced profile management (deletion, listing), see the [ProfileManager Documentation](./ProfileManager.md).
+```python
+pm.activate_profile(
+    platform=Platform.WHATSAPP,
+    profile_id="MarketingBot",
+    browser_obj=browser,
+)
+```
+
+---
+
+## Step 6: Enable Encryption (Optional) 🔐
+
+To encrypt all stored messages with AES-256-GCM, call `enable_encryption()` once. The returned key is passed to `MessageProcessor` later.
+
+```python
+# First-time setup
+key = pm.enable_encryption(Platform.WHATSAPP, "MarketingBot")
+
+# On subsequent runs — reload the saved key
+# key = pm.get_key(Platform.WHATSAPP, "MarketingBot")
+```
+
+---
+
+## Graceful Shutdown 🛑
+
+```python
+async def shutdown():
+    await pm.close_profile(Platform.WHATSAPP, "MarketingBot")
+    print("Profile closed and session saved.")
+
+asyncio.run(shutdown())
+```
+
+---
+
+## Key Takeaways 💡
+
+| Concept | Why It Matters |
+|---------|---------------|
+| **Profile isolation** | Each `profile_id` is a completely separate virtual browser user — no shared state. |
+| **Fingerprint persistence** | `fingerprint.pkl` ensures the same browser identity across restarts — critical for WhatsApp session continuity. |
+| **Idempotent creation** | `create_profile()` is safe to call at every script startup. |
+| **Multi-profile headless** | `activate_profile()` auto-enforces headless for the 2nd+ profile — no manual configuration needed. |
+| **Encrypted storage** | One call to `enable_encryption()` activates AES-256-GCM on all future messages for that profile. |
+
+For advanced profile operations (listing, deletion, encryption), see [ProfileManager](./ProfileManager.md).  
+For fingerprint internals, see [BrowserForgeCompatible](./BrowserForgeCompatible.md).

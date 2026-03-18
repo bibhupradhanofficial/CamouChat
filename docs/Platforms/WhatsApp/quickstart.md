@@ -1,159 +1,270 @@
-# WhatsApp QuickStart Guide 💬
+# WhatsApp QuickStart 💬
 
-Building a WhatsApp bot with **CamouChat** is designed to be intuitive and stealth-first. This guide covers authentication, chat management, and message processing.
+`camouchat.WhatsApp`
+
+This guide walks you through a complete WhatsApp bot session — from first-time login through message extraction, replying, and sending media. Each step builds on the previous one.
 
 ---
 
-### Step 1: Authentication (One-Time Setup) 🔐
+## Prerequisites
 
-To start, link your WhatsApp account to your sandboxed profile. You can choose between **QR Code** or **Phone Number** methods.
+Make sure you've completed the [BrowserManager QuickStart](../../BrowserManager/quickstart.md) and have:
+- A `ProfileManager` instance (`pm`)
+- A `ProfileInfo` object (`profile`)
+- A running `CamoufoxBrowser` instance (`browser`)
+
+---
+
+## Step 1: Get a Page 🌐
 
 ```python
 import asyncio
-from camouchat.WhatsApp import Login, WebSelectorConfig
-from camouchat.camouchat_logger import CamouChatLogger
+from camouchat.BrowserManager import CamoufoxBrowser, ProfileManager, Platform
 
+pm = ProfileManager()
+profile = pm.create_profile(Platform.WHATSAPP, "MyBot")
 
-async def setup_whatsapp(page):
-    # ui_config_obj is the Core heart of the camouchat to talk to WhatsApp
-    ui_config_obj = WebSelectorConfig(page=page, log=CamouChatLogger)
+# ... (browser setup as in BrowserManager quickstart) ...
 
-    # Initialize the Login handler
-    login_obj = Login(
-        # Need 3 Parameter --- all 3 are REQUIRED PARAMETER -------
-        page=page,
-        # We Support Asyncio only.
-        UIConfig=ui_config_obj,
-        log=CamouChatLogger,
-    )
-
-    await login_obj.login(
-        method=0,
-        # ---- REQUIRED PARAMETER ------
-        # 0 FOR QR BASED LOGIN.
-        # 1 FOR CODE BASED LOGIN.
-        wait_time=150000,
-        # ---- REQUIRED PARAMETER ------
-        # The time it would wait for QR SCAN to be scanned
-        url="https://web.whatsapp.com",
-        # ----------- THE BELOW ARE ONLY REQUIRED WHEN YOU CHOOSE 1 AS YOUR LOGIN METHOD -------------
-        number=0000000000,
-        # ---- REQUIRED PARAMETER (if method=1) ------
-        country="Your Country",
-        # ---- REQUIRED PARAMETER (if method=1) ------
-    )
-
-    # Verify if login was successful
-    if await login_obj.is_login_successful():
-        print("✅ Logged in successfully!")
-
-# asyncio.run(setup_whatsapp(page))
+async def main():
+    page = await browser.get_page()
 ```
 
 ---
 
-### Step 2: Fetching Conversations with ChatProcessor 📥
+## Step 2: Create WebSelectorConfig 🎯
 
-The `ChatProcessor` allows you to explore the sidebar and interact with visible chats.
+`WebSelectorConfig` is the **single source of DOM selectors** for WhatsApp Web. Create one instance and share it across all WhatsApp components in the same session.
+
+```python
+from camouchat.WhatsApp import WebSelectorConfig
+from camouchat.camouchat_logger import camouchatLogger
+
+ui_config = WebSelectorConfig(page=page, log=camouchatLogger)
+```
+
+> [!TIP]
+> `WebSelectorConfig` is bound to a specific `page` object. If you create a new page, create a new `WebSelectorConfig` for it.
+
+---
+
+## Step 3: Login (One-Time Setup) 🔐
+
+Before any automation, you need to authenticate. This is only required once per profile — the session is saved in `profile.cache_dir`.
+
+```python
+from camouchat.WhatsApp import Login
+
+login_obj = Login(
+    page=page,
+    UIConfig=ui_config,     # PascalCase parameter name
+    log=camouchatLogger,
+)
+
+# Method 0: QR code (scan with your phone)
+await login_obj.login(
+    method=0,
+    wait_time=150_000,      # 150 seconds to scan
+)
+
+# OR Method 1: Phone number pairing code
+# await login_obj.login(
+#     method=1,
+#     number=9876543210,    # Without country code
+#     country="India",      # Exactly as in WhatsApp's dropdown
+# )
+
+# Verify connection
+if await login_obj.is_login_successful():
+    print("✅ Logged in and connected!")
+```
+
+> [!NOTE]
+> After the first successful login, subsequent runs will skip this step automatically — the session persists in the Camoufox cache directory.
+
+---
+
+## Step 4: Fetch Chats 📥
 
 ```python
 from camouchat.WhatsApp import ChatProcessor
 
+chat_proc = ChatProcessor(
+    page=page,
+    ui_config=ui_config,    # snake_case parameter name
+    log=camouchatLogger,
+)
 
-async def manage_chats(page):
-    ui_config = WebSelectorConfig(page=page, log=camouchatLogger)
+# Get the top 5 chats from the sidebar
+chats = await chat_proc.fetch_chats(limit=5, retry=5)
 
-    # All 3 are REQUIRED PARAMETER for ChatProcessor
-    chat_proc = ChatProcessor(
-        page=page,
-        log=camouchatLogger,
-        ui_config=ui_config
-    )
-
-    # Fetch visible chats
-    # Returns list of whatsapp_chat
-    _chats = await chat_proc.fetch_chats(limit=5)
-
-    for chat in _chats:
-        print(f"💬 Found Chat: {chat.chat_name}")
+for chat in chats:
+    unread = await ChatProcessor.is_unread(chat)
+    status = "📩 UNREAD" if unread else "✓ read"
+    print(f"  {status} | {chat.chat_name}")
 ```
 
 ---
 
-### Step 3: Processing and Storing Messages 📝
-
-The `MessageProcessor` extracts history and optionally persists it to a database.
+## Step 5: Process Messages 📝
 
 ```python
 from camouchat.WhatsApp import MessageProcessor
 
+# Basic setup — no storage or filter (in-memory only)
+msg_proc = MessageProcessor(
+    chat_processor=chat_proc,
+    page=page,
+    ui_config=ui_config,
+    # storage_obj=storage,  # Add SQLAlchemyStorage for persistence
+    # filter_obj=msg_filter, # Add MessageFilter for rate-limiting
+    # encryption_key=key,   # Add for AES-256 encryption
+    log=camouchatLogger,
+)
 
-async def capture_messages(page, chat_proc):
-    ui_config = WebSelectorConfig(page=page, log=camouchatLogger)
+# Fetch messages from the first chat
+messages = await msg_proc.fetch_messages(chat=chats[0], retry=3)
 
-    # Initialize the Message Processor
-    msg_proc = MessageProcessor(
-        storage_obj=None,  # Optional: SQLAlchemyStorage instance to auto-save
-        filter_obj=None,  # Optional: MessageFilter to drop certain types
-        chat_processor=chat_proc,
-        page=page,
-        log=camouchatLogger,
-        ui_config=ui_config
-    )
+# Separate by direction
+inbound  = await MessageProcessor.sort_messages(messages, incoming=True)
+outbound = await MessageProcessor.sort_messages(messages, incoming=False)
 
-    # Get a list of chats first
-    _chats = await chat_proc.fetch_chats(limit=1)
-    if _chats:
-        target_chat = _chats[0]
+print(f"Received {len(inbound)} messages, sent {len(outbound)}.")
+for msg in inbound:
+    print(f"  [{msg.data_id}] {msg.raw_data}")
+```
 
-        # Fetch, store, and filter messages from this chat
-        messages = await msg_proc.fetch_messages(chat=target_chat, retry=3)
-
-        for msg in messages:
-            print(f"[{msg.direction}] {msg.raw_data}")
-
+> [!TIP]
+> Use `only_new=True` kwarg in `fetch_messages()` for event-driven bots — it returns only messages not yet in the database, so you process each message exactly once.
 
 ---
 
-### Step 4: Advanced Operations (Replying & Media) 🚀
+## Step 6: Add Persistence & Encryption 💾🔐
 
-Expand
-your
-bot
-'s capabilities with targeted replies and file uploads.
+For production bots, you need async database storage and optionally AES-256 encryption:
 
 ```python
-from camouchat.WhatsApp import ReplyCapable, MediaCapable, HumanInteractionController
-from camouchat.Interfaces.media_capable_interface import MediaType, FileTyped
+import asyncio
+from camouchat.StorageDB import SQLAlchemyStorage
+from camouchat.Filter import MessageFilter
 
+queue = asyncio.Queue()
 
-async def advanced_ops(page, chat_proc, target_chat):
-    ui_config = WebSelectorConfig(page=page, log=camouchatLogger)
-    humanizer = HumanInteractionController(page=page, log=camouchatLogger)
+# Initialize storage from profile (uses profile.database_url automatically)
+storage = SQLAlchemyStorage.from_profile(profile=profile, queue=queue, log=camouchatLogger)
 
-    # Replying to a message
-    reply_handler = ReplyCapable(page=page, log=camouchatLogger, ui_config=ui_config)
-    # assuming 'target_msg' was fetched from msg_proc.Fetcher
-    await reply_handler.reply(message=target_msg, humanize=humanizer, text="I received your message!")
+# Initialize rate-limit filter
+msg_filter = MessageFilter(
+    LimitTime=3600,               # Hard-drop chats deferred > 1 hour
+    Max_Messages_Per_Window=10,   # Max 10 messages per 60-second window
+    Window_Seconds=60,
+)
 
-    # Sending an image
-    media_handler = MediaCapable(page=page, log=camouchatLogger, UIConfig=ui_config)
-    await media_handler.add_media(
-        mtype=MediaType.IMAGE,
-        file=FileTyped(uri="/absolute/path/to/image.png")
+# Load or generate encryption key
+if pm.is_encryption_enabled(Platform.WHATSAPP, "MyBot"):
+    key = pm.get_key(Platform.WHATSAPP, "MyBot")
+else:
+    key = pm.enable_encryption(Platform.WHATSAPP, "MyBot")
+
+async with storage:   # Starts DB, creates tables, starts background writer
+    msg_proc = MessageProcessor(
+        chat_processor=chat_proc,
+        page=page,
+        ui_config=ui_config,
+        storage_obj=storage,
+        filter_obj=msg_filter,
+        encryption_key=key,
+        log=camouchatLogger,
     )
-```
 
-> [!NOTE]
-> For in-depth details, see [ReplyCapable Guide](ReplyCapable.md) and [MediaCapable Guide](MediaCapable.md).
+    messages = await msg_proc.fetch_messages(chat=chats[0], only_new=True)
+    print(f"Stored {len(messages)} new messages.")
 ```
 
 ---
 
-### Pro-Tips for WhatsApp Automation ⚡
+## Step 7: Reply to a Message ↩️
 
-- **Wait Times**: QR scan time defaults to 180s. Adjust `wait_time` if you need more.
-- **Persistence**: Once logged in, your session is saved in the profile's disk cache. 
-- **Stealth**: Avoid "inhuman" speeds. The SDK includes natural delays, but it's best to fetch messages only when needed.
+```python
+from camouchat.WhatsApp import ReplyCapable, HumanInteractionController
 
-For complete message encryption details, check the [MessageProcessor Documentation](./MessageProcessor.md).
+humanizer = HumanInteractionController(
+    page=page,
+    ui_config=ui_config,
+    log=camouchatLogger,
+)
+
+reply_handler = ReplyCapable(
+    page=page,
+    ui_config=ui_config,    # snake_case here too
+    log=camouchatLogger,
+)
+
+# Reply to the latest inbound message
+if inbound:
+    success = await reply_handler.reply(
+        message=inbound[-1],
+        humanize=humanizer,
+        text="Hey! I received your message. 🤖",
+    )
+    if success:
+        print("✅ Reply sent!")
+```
+
+---
+
+## Step 8: Send a Media File 📎
+
+```python
+from camouchat.WhatsApp import MediaCapable
+from camouchat.Interfaces.media_capable_interface import MediaType, FileTyped
+
+media_handler = MediaCapable(
+    page=page,
+    UIConfig=ui_config,     # PascalCase for MediaCapable
+    log=camouchatLogger,
+)
+
+success = await media_handler.add_media(
+    mtype=MediaType.IMAGE,
+    file=FileTyped(
+        uri="/absolute/path/to/report.png",
+        name="report.png",
+        mime_type="image/png",
+    ),
+)
+
+if success:
+    # add_media returns True when the file is staged — press Enter to send
+    await page.keyboard.press("Enter")
+    print("📤 Image sent!")
+```
+
+---
+
+## Parameter Name Reference Card
+
+Different components use slightly different naming conventions for the same concept:
+
+| Component | UI Config param | 
+|-----------|----------------|
+| `Login` | `UIConfig` (PascalCase) |
+| `MediaCapable` | `UIConfig` (PascalCase) |
+| `ChatProcessor` | `ui_config` (snake_case) |
+| `ReplyCapable` | `ui_config` (snake_case) |
+| `MessageProcessor` | `ui_config` (snake_case) |
+| `HumanInteractionController` | `ui_config` (snake_case) |
+
+---
+
+## Pro-Tips for Production ⚡
+
+- **Session reuse**: Once logged in, the bot never calls `login()` again on the same profile (unless the session expires or gets revoked).
+- **`only_new=True`**: Essential for polling bots — avoids reprocessing already-stored messages.
+- **Encryption key rotation**: Do not call `enable_encryption()` twice on the same profile — it raises `ValueError`. Use `get_key()` on all subsequent runs.
+- **Multi-bot concurrency**: Each profile runs in its own `CamoufoxBrowser` instance. The 2nd+ browser is automatically headless — perfect for running 10+ bots silently.
+
+For detailed method references, see:
+- [Login Guide](Login.md) | [ChatProcessor Guide](ChatProcessor.md) | [MessageProcessor Guide](MessageProcessor.md)
+- [ReplyCapable Guide](ReplyCapable.md) | [MediaCapable Guide](MediaCapable.md)
+- [HumanInteractionController Guide](HumanInteractionController.md)
