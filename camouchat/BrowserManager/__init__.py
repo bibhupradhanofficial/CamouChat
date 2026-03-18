@@ -4,7 +4,7 @@ from camouchat.BrowserManager.camoufox_browser import CamoufoxBrowser
 from camouchat.BrowserManager.platform_manager import Platform
 from camouchat.BrowserManager.profile_info import ProfileInfo
 from camouchat.BrowserManager.profile_manager import ProfileManager
-from camouchat.BrowserManager.storage_type import StorageType
+
 
 __all__ = [
     "BrowserConfig",
@@ -12,6 +12,5 @@ __all__ = [
     "CamoufoxBrowser",
     "Platform",
     "ProfileInfo",
-    "ProfileManager",
-    "StorageType",
+    "ProfileManager"
 ]

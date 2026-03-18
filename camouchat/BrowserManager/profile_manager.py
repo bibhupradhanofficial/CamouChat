@@ -2,15 +2,17 @@ import json
 import os
 import shutil
 import signal
+from logging import Logger, LoggerAdapter
+from camouchat.camouchat_logger import camouchatLogger
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Union
 
 from camouchat.directory import DirectoryManager
 from camouchat.BrowserManager.camoufox_browser import CamoufoxBrowser
 from camouchat.BrowserManager.platform_manager import Platform
 from camouchat.BrowserManager.profile_info import ProfileInfo
-from camouchat.BrowserManager.storage_type import StorageType
+from camouchat.StorageDB.storage_type import StorageType
 
 class ProfileManager:
     """Manager / entry point for profile creation, activation, and key management.
@@ -25,8 +27,9 @@ class ProfileManager:
 
     p_count: int = 0
 
-    def __init__(self):
+    def __init__(self, log : Optional[Union[LoggerAdapter, Logger]] = None) -> None:
         self.directory = DirectoryManager()
+        self.log = log or camouchatLogger
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -146,7 +149,7 @@ class ProfileManager:
             database_url=database_url
         )
         self._write_metadata(platform, profile_id, metadata)
-
+        self.log.info(f"Profile created with name [{profile_id}] & stored at [{profile_dir}]")
         return ProfileInfo.from_metadata(metadata, self.directory)
 
     def get_profile(self, platform: Platform, profile_id: str) -> ProfileInfo:

@@ -154,7 +154,7 @@ class SQLAlchemyStorage(StorageInterface):
             raise StorageError("Database not initialized. Call init_db() first.")
 
         try:
-            async with self._engine.begin() as conn:
+            async with self._engine.begin() as conn: # type: ignore
                 await conn.run_sync(Base.metadata.create_all)
             self.log.info("Tables created/verified.")
         except Exception as e:
@@ -182,7 +182,7 @@ class SQLAlchemyStorage(StorageInterface):
         if not self._engine:
             return
 
-        async with self._engine.begin() as conn:
+        async with self._engine.begin() as conn: # type: ignore
             for sql in migration_sqls:
                 try:
                     await conn.execute(text(sql))
