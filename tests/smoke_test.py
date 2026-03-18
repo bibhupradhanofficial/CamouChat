@@ -4,7 +4,7 @@ Smoke Test File to test every module before pushing to release.
 
 import asyncio
 from asyncio import Queue
-from typing import List
+from typing import List, Sequence
 
 from camouchat.BrowserManager import (
     BrowserConfig,
@@ -113,7 +113,7 @@ async def main():
 
     async with storage:
         for _ in range(50):
-            chats: List[Chat] = await chat_processor.fetch_chats(limit=4)  # Top 4 chats fetched
+            chats: Sequence[Chat] = await chat_processor.fetch_chats(limit=4)  # Top 4 chats fetched
             for chat in chats:
                 print(chat)
                 print("---Entering MessageProcessor...\n")
