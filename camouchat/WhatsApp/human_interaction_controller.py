@@ -110,7 +110,7 @@ class HumanInteractionController(HumanInteractionControllerInterface):
 
                 return
 
-            except (PlaywrightTimeoutError, PlaywrightError) as e:
+            except (PlaywrightTimeoutError, PlaywrightError):
                 if attempt < retries:
                     await asyncio.sleep(0.2 * attempt)
                 else:

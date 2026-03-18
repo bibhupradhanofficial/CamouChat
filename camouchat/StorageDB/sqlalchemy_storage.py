@@ -93,7 +93,7 @@ class SQLAlchemyStorage(StorageInterface):
             cls,
             profile: ProfileInfo,
             queue: asyncio.Queue,
-            log: logging.Logger,
+            log: Optional[Union[Logger,LoggerAdapter]],
             batch_size: int = 50,
             flush_interval: float = 2.0,
     ) -> "SQLAlchemyStorage":
