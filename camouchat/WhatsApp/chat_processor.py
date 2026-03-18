@@ -121,54 +121,81 @@ class ChatProcessor(ChatProcessorInterface):
                 raise ChatProcessorError("Unexpected failure in chat extraction.") from e
 
         raise ChatProcessorError("Unreachable state in chat extraction.")
-
     async def _click_chat(
             self,
             chat: Optional[Chat],
             **kwargs
     ) -> bool:  # type: ignore[override]
-        """Click on a chat with retry + exponential backoff."""
+        """Click on a chat purely using JS coordinates and CDP dispatch.
 
-        retries: int = kwargs.get("retries", 5)
-        base_delay: float = kwargs.get("base_delay", 0.5)
+        Playwright's `locator.click()` can deadlock the entire python event loop
+        trying to wait for OS mouse pointer stability. By bypassing it and
+        sending a raw CDP mouse click, we are completely immune to interference.
+        
+        It will try repeatedly (up to 20 times, 1 second apart) to grab
+        the element's bounding box and click it.
+        """
+        retries: int = kwargs.get("retries", 20)
+        delay: float = kwargs.get("base_delay", 1.0)
 
         if not chat:
             raise ChatNotFoundError("None passed, expected Chat in _click_chat")
 
+        chat_name = chat.chat_name
+
         for attempt in range(1, retries + 1):
             try:
-                handle: Optional[ElementHandle] = (
-                    await chat.chat_ui.element_handle(timeout=1500)
-                    if isinstance(chat.chat_ui, Locator)
-                    else chat.chat_ui if chat.chat_ui is not None else None
+                # Bypass actionability checks entirely by using JS to find exactly
+                # where the chat is located currently.
+                coords = await self.page.evaluate(
+                    """(name) => {
+                        const rows = document.querySelectorAll(
+                            '[role="row"], [role="listitem"]'
+                        );
+                        for (const row of rows) {
+                            const span = row.querySelector('span[title]');
+                            if (span && span.title === name) {
+                                const r = row.getBoundingClientRect();
+                                return {
+                                    x: r.left + r.width / 2,
+                                    y: r.top + r.height / 2
+                                };
+                            }
+                        }
+                        return null;
+                    }""",
+                    chat_name,
                 )
 
-                if handle is None:
-                    raise ChatClickError("Chat UI handle is None.")
-
-                await handle.click(timeout=5000)
-                return True
-
-            # Retryable
-            except PlaywrightTimeoutError as e:
-                if attempt < retries:
-                    delay = base_delay * (2 ** (attempt - 1))
+                if coords:
                     self.log.debug(
-                        f"[Retry {attempt}/{retries}] click_chat timeout → retrying in {delay:.2f}s"
+                        f"[_click_chat] Attempt {attempt}/{retries}: "
+                        f"Injecting CDP click at {coords['x']}, {coords['y']} for '{chat_name}'."
                     )
+                    await self.page.mouse.click(coords["x"], coords["y"], click_count=1)
+                    return True
+                
+                # If no coords, DOM is probably re-rendering. Just fall through to retry.
+                self.log.debug(
+                    f"[_click_chat] Attempt {attempt}/{retries}: "
+                    f"Chat '{chat_name}' not found in live DOM."
+                )
+
+                if attempt < retries:
                     await asyncio.sleep(delay)
                 else:
-                    self.log.error(f"Failed to click chat after {retries} retries.")
-                    raise ChatClickError("Failed to click chat in time.") from e
+                    self.log.error(f"Failed to click '{chat_name}' after {retries} retries.")
+                    raise ChatClickError(f"Exhausted retries clicking chat '{chat_name}'.")
 
-            # rethrow
             except CamouChatError:
                 raise
 
-            # Unexpected
             except Exception as e:
-                self.log.error("Unexpected error in _click_chat", exc_info=True)
-                raise ChatClickError("Unexpected failure in _click_chat.") from e
+                self.log.error(f"[_click_chat] Unexpected error on attempt {attempt}: {e}")
+                if attempt < retries:
+                    await asyncio.sleep(delay)
+                else:
+                    raise ChatClickError("Unexpected failure in _click_chat.") from e
 
         raise ChatClickError("Unreachable state in _click_chat")
 
