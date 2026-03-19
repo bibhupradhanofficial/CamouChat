@@ -121,7 +121,7 @@ CamouChat is built with a clear direction:
 ##  --------------------------  Installation -------------------------- 
 
 > [!IMPORTANT]
-> **CamouChat** is currently in active development and **not yet published on PyPI**. To use or contribute to the SDK, please follow the [Contributor's Flow](#-contributors-flow-development-setup) below to install from source.
+> **CamouChat** is currently in active development and **not yet published on PyPI for V_0.6 version**. To use or contribute to the SDK, please follow the [Contributor's Flow](#-contributors-flow-development-setup) below to install from source.
 
 ### Using `uv` (Recommended)
 
