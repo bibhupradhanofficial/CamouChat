@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import logging
+from logging import Logger, LoggerAdapter
+from camouchat.camouchat_logger import camouchatLogger
 from abc import ABC, abstractmethod
-from typing import List, Optional, TypeVar
+from typing import Generic, List, Optional, TypeVar, Union
 
 from playwright.async_api import Page
 
@@ -12,34 +13,39 @@ from camouchat.Interfaces.storage_interface import StorageInterface
 from camouchat.Interfaces.message_interface import MessageInterface
 from camouchat.Filter.message_filter import MessageFilter
 from camouchat.Interfaces.chat_interface import ChatInterface
-from camouchat.WhatsApp.web_ui_config import WebSelectorConfig
+from camouchat.Interfaces.web_ui_selector import WebUISelectorCapable
 
 T = TypeVar("T", bound=MessageInterface)
+U = TypeVar("U", bound=WebUISelectorCapable)
 
 
-class MessageProcessorInterface(ABC):
+class MessageProcessorInterface(ABC, Generic[T, U]):
     """Base interface for message extraction and processing."""
+
+    UIConfig: U
 
     def __init__(
         self,
-        log: logging.Logger,
         page: Page,
-        UIConfig: WebSelectorConfig,
+        UIConfig: U,
         storage_obj: Optional[StorageInterface] = None,
         filter_obj: Optional[MessageFilter] = None,
+        log: Optional[Union[LoggerAdapter, Logger]] = None,
     ):
-        self.storage = storage_obj
-        self.filter = filter_obj
-        self.log = log
+        from camouchat.NoOpPattern import NoOpStorage, NoOpMessageFilter
+
+        self.storage = storage_obj or NoOpStorage()
+        self.filter = filter_obj or NoOpMessageFilter()
+        self.log = log or camouchatLogger
         self.page = page
         self.UIConfig = UIConfig
 
     @abstractmethod
-    async def _get_wrapped_Messages(self, retry: int, *args, **kwargs) -> List[T]:
+    async def _get_wrapped_Messages(self, retry: int, **kwargs) -> List[T]:
         """Extract and wrap messages from UI elements."""
         ...
 
     @abstractmethod
-    async def Fetcher(self, chat: ChatInterface, retry: int, *args, **kwargs) -> List[T]:
+    async def fetch_messages(self, chat: ChatInterface, retry: int, **kwargs) -> List[T]:
         """Fetch messages from a chat with storage and filtering."""
         ...

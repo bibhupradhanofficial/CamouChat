@@ -2,22 +2,23 @@
 
 from __future__ import annotations
 
-import logging
+import asyncio
 import random
 import weakref
-from typing import Optional
+from logging import Logger, LoggerAdapter
+from typing import Optional, Union
 
-from playwright.async_api import Page, Locator, Position
+from playwright.async_api import Page
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
-from camouchat.WhatsApp.humanized_operations import HumanizedOperations
 from camouchat.Exceptions.whatsapp import ReplyCapableError
 from camouchat.Interfaces.reply_capable_interface import ReplyCapableInterface
+from camouchat.WhatsApp.human_interaction_controller import HumanInteractionController
+from camouchat.WhatsApp.models.message import Message
 from camouchat.WhatsApp.web_ui_config import WebSelectorConfig
-from camouchat.WhatsApp.DerivedTypes.Message import whatsapp_message
 
 
-class ReplyCapable(ReplyCapableInterface):
+class ReplyCapable(ReplyCapableInterface[Message, HumanInteractionController, WebSelectorConfig]):
     """Enables replying to specific WhatsApp messages."""
 
     _instances: weakref.WeakKeyDictionary[Page, ReplyCapable] = weakref.WeakKeyDictionary()
@@ -32,18 +33,23 @@ class ReplyCapable(ReplyCapableInterface):
             cls._instances[page] = instance
         return cls._instances[page]
 
-    def __init__(self, page: Page, log: logging.Logger, UIConfig: WebSelectorConfig):
+    def __init__(
+        self,
+        page: Page,
+        ui_config: WebSelectorConfig,
+        log: Optional[Union[LoggerAdapter, Logger]] = None,
+    ) -> None:
         if hasattr(self, "_initialized") and self._initialized:
             return
-        super().__init__(page=page, log=log, UIConfig=UIConfig)
+        super().__init__(page=page, log=log, ui_config=ui_config)
         if self.page is None:
             raise ValueError("page must not be None")
         self._initialized = True
 
     async def reply(
         self,
-        message: whatsapp_message,  # type: ignore[override]
-        humanize: HumanizedOperations,  # type: ignore[override]
+        message: Message,
+        humanize: HumanInteractionController,
         text: Optional[str],
         **kwargs,
     ) -> bool:
@@ -67,36 +73,81 @@ class ReplyCapable(ReplyCapableInterface):
         except PlaywrightTimeoutError as e:
             raise ReplyCapableError("reply timed out while preparing input box") from e
 
-    async def _side_edge_click(self, message: whatsapp_message) -> bool:
-        """Double-click on message edge to trigger reply action."""
-        ui = message.message_ui
-        try:
-            if not ui:
-                raise ReplyCapableError("Message UI is not accessible for reply edge click.")
+    async def _side_edge_click(self, message: Message) -> bool:
+        """Double-click on message edge to trigger reply action.
 
-            if isinstance(ui, Locator):
-                ui = await ui.element_handle(timeout=1000)
+        Strategy — avoid Playwright's internal ElementHandle chain:
+        - `Locator.scroll_into_view_if_needed()` internally calls `_with_element()`
+          which snapshots an ElementHandle. WhatsApp's virtual-scroll unmounts the
+          node mid-action → "not attached to DOM". Same applies to `bounding_box()`.
+        - Fix: use raw JavaScript for scroll + dimension lookup (both bypass the
+          ElementHandle chain entirely), then `locator.click()` which has built-in
+          retry / wait-for-stability semantics.
+        - An outer retry loop with a short sleep covers the brief window where
+          WhatsApp re-renders a node to update message status ticks (✓ → ✓✓).
+        """
+        if message is None or not message.data_id:
+            raise ReplyCapableError("Message or data_id is missing.")
 
-            if not ui:
-                raise ReplyCapableError("Message UI returned None on element_handle wait.")
+        data_id = str(message.data_id)
+        is_incoming = getattr(message, "direction", "IN") == "IN"
 
-            await ui.scroll_into_view_if_needed(timeout=2000)
-            box = await ui.bounding_box()
-            if not box:
-                raise ReplyCapableError("message bounding box not available")
+        retries = 20
+        delay = 1.0
 
-            rel_x = box["width"] * (0.2 if message.isIncoming() else 0.8)
-            rel_y = box["height"] / 2
+        for attempt in range(1, retries + 1):
+            try:
+                # ── Step 1: Get dimensions via JS (no ElementHandle) ──────────
+                dims = await self.page.evaluate(
+                    """(id) => {
+                        const el = document.querySelector(`div[data-id="${id}"]`);
+                        if (!el) return null;
+                        el.scrollIntoView({ behavior: 'instant', block: 'center' });
+                        
+                        const r = el.getBoundingClientRect();
+                        return { x: r.left, y: r.top, width: r.width, height: r.height };
+                    }""",
+                    data_id,
+                )
 
-            await ui.click(
-                position=Position(x=rel_x, y=rel_y),
-                click_count=2,
-                delay=random.randint(55, 70),
-                timeout=3000,
-            )
+                # ── Step 2: Calculate absolute CDP coordinates ───────────────
+                if dims and dims.get("width") and dims.get("height"):
+                    # Calculate click target: 20% from left for IN, 20% from right (80%) for OUT
+                    rel_x = dims["width"] * (0.2 if is_incoming else 0.8)
+                    rel_y = dims["height"] / 2
 
-            await self.page.wait_for_timeout(timeout=500)
-            return True
+                    abs_x = dims["x"] + rel_x
+                    abs_y = dims["y"] + rel_y
 
-        except PlaywrightTimeoutError as e:
-            raise ReplyCapableError("side_edge_click timed out while clicking message UI") from e
+                    # ── Step 3: CDP Double Click ───────────────────────────────
+                    self.log.debug(
+                        f"[side_edge_click] Attempt {attempt}/{retries}: "
+                        f"Double-clicking CDP coordinates ({abs_x}, {abs_y})"
+                    )
+                    await self.page.mouse.click(
+                        x=abs_x, y=abs_y, click_count=2, delay=random.randint(55, 70)
+                    )
+                    await self.page.wait_for_timeout(500)
+                    return True
+                else:
+                    self.log.debug(
+                        f"[side_edge_click] Attempt {attempt}/{retries}: "
+                        f"Message '{data_id}' not found in DOM."
+                    )
+
+                if attempt < retries:
+                    await asyncio.sleep(delay)
+                else:
+                    raise ReplyCapableError(f"side_edge_click failed after {retries} attempts.")
+
+            except ReplyCapableError:
+                raise
+
+            except Exception as e:
+                self.log.error(f"[side_edge_click] Error on attempt {attempt}: {e}")
+                if attempt < retries:
+                    await asyncio.sleep(delay)
+                else:
+                    raise ReplyCapableError(f"Unexpected error in side_edge_click: {e}") from e
+
+        raise ReplyCapableError("side_edge_click failed after max attempts.")

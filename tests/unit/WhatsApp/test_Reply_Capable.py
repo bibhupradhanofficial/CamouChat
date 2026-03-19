@@ -4,14 +4,14 @@ Tests cover replying to messages and message selection.
 """
 
 import logging
-from unittest.mock import Mock, AsyncMock
+from unittest.mock import Mock, AsyncMock, patch
 
 import pytest
-from playwright.async_api import Page, Locator, TimeoutError as PlaywrightTimeoutError, Position
+from playwright.async_api import Page, Locator, TimeoutError as PlaywrightTimeoutError
 
 from camouchat.Exceptions.whatsapp import ReplyCapableError
-from camouchat.WhatsApp.DerivedTypes.Message import whatsapp_message
-from camouchat.WhatsApp.humanized_operations import HumanizedOperations
+from camouchat.WhatsApp.models.message import Message
+from camouchat.WhatsApp.human_interaction_controller import HumanInteractionController
 from camouchat.WhatsApp.reply_capable import ReplyCapable
 from camouchat.WhatsApp.web_ui_config import WebSelectorConfig
 
@@ -29,6 +29,10 @@ def mock_logger():
 def mock_page():
     page = AsyncMock(spec=Page)
     page.keyboard = AsyncMock()
+    page.mouse = Mock()
+    page.mouse.click = AsyncMock()
+    page.evaluate = AsyncMock()
+    page.wait_for_timeout = AsyncMock()
     return page
 
 
@@ -39,12 +43,12 @@ def mock_ui_config():
 
 @pytest.fixture
 def reply_capable_instance(mock_page, mock_logger, mock_ui_config):
-    return ReplyCapable(page=mock_page, log=mock_logger, UIConfig=mock_ui_config)
+    return ReplyCapable(page=mock_page, log=mock_logger, ui_config=mock_ui_config)
 
 
 @pytest.fixture
 def mock_humanize():
-    return Mock(spec=HumanizedOperations)
+    return Mock(spec=HumanInteractionController)
 
 
 # ============================================================================
@@ -55,14 +59,14 @@ def mock_humanize():
 @pytest.mark.asyncio
 async def test_init_page_none(mock_logger, mock_ui_config):
     with pytest.raises(ValueError, match="page must not be None"):
-        ReplyCapable(page=None, log=mock_logger, UIConfig=mock_ui_config)
+        ReplyCapable(page=None, log=mock_logger, ui_config=mock_ui_config)
 
 
 @pytest.mark.asyncio
 async def test_reply_success(reply_capable_instance, mock_humanize, mock_ui_config):
     """Test reply successfully types and sends text."""
     # Setup Mocks
-    mock_msg = Mock(spec=whatsapp_message)
+    mock_msg = Mock(spec=Message)
     reply_capable_instance._side_edge_click = AsyncMock()  # Skip real click
 
     mock_input_box = AsyncMock(spec=Locator)
@@ -87,7 +91,7 @@ async def test_reply_success(reply_capable_instance, mock_humanize, mock_ui_conf
 @pytest.mark.asyncio
 async def test_reply_timeout(reply_capable_instance, mock_humanize):
     """Test reply raises error on timeout."""
-    mock_msg = Mock(spec=whatsapp_message)
+    mock_msg = Mock(spec=Message)
     reply_capable_instance._side_edge_click = AsyncMock(
         side_effect=PlaywrightTimeoutError("Timeout")
     )
@@ -97,43 +101,31 @@ async def test_reply_timeout(reply_capable_instance, mock_humanize):
 
 
 @pytest.mark.asyncio
-async def test_side_edge_click_success(reply_capable_instance):
+async def test_side_edge_click_success(reply_capable_instance, mock_page):
     """Test _side_edge_click successfully triggers reply click."""
-    mock_msg = Mock(spec=whatsapp_message)
-    mock_msg.isIncoming.return_value = True
+    mock_msg = Mock(spec=Message)
+    mock_msg.data_id = "test-id"
+    mock_msg.direction = "IN"
 
-    # Setup mock UI
-    mock_msg_ui = AsyncMock(spec=Locator)
-    # Ensure element_handle returns the SAME mock so subsequent calls like bounding_box work
-    mock_msg_ui.element_handle.return_value = mock_msg_ui
-    mock_msg.message_ui = mock_msg_ui
-
-    # Setup Bounding Box
-    mock_msg_ui.bounding_box.return_value = {"x": 100, "y": 200, "width": 50, "height": 30}
+    mock_page.evaluate.return_value = {"x": 100, "y": 200, "width": 50, "height": 30}
 
     await reply_capable_instance._side_edge_click(mock_msg)
 
-    # Verification: It calls click(click_count=2) on the element handle
-    # Arguments: position={x: 10 + width*0.2 = ?}, click_count=2
-    # box width=50. incoming=True -> factor 0.2 -> rel_x = 10.
-    # box height=30. rel_y = 15.
-
-    # We assert that click was called with correct parameters
-    assert mock_msg_ui.click.called
-    kwargs = mock_msg_ui.click.call_args.kwargs
+    assert mock_page.mouse.click.called
+    kwargs = mock_page.mouse.click.call_args.kwargs
     assert kwargs["click_count"] == 2
-    assert kwargs["position"] == Position(x=10.0, y=15.0)
+    assert kwargs["x"] == 110.0
+    assert kwargs["y"] == 215.0
 
 
 @pytest.mark.asyncio
-async def test_side_edge_click_no_bbox(reply_capable_instance):
+async def test_side_edge_click_no_bbox(reply_capable_instance, mock_page):
     """Test _side_edge_click raises error if bbox is None."""
-    mock_msg = Mock(spec=whatsapp_message)
-    mock_msg_ui = AsyncMock(spec=Locator)
-    mock_msg_ui.element_handle.return_value = mock_msg_ui  # Return self
-    mock_msg.message_ui = mock_msg_ui
+    mock_msg = Mock(spec=Message)
+    mock_msg.data_id = "test-id"
 
-    mock_msg_ui.bounding_box.return_value = None
+    mock_page.evaluate.return_value = None
 
-    with pytest.raises(ReplyCapableError, match="message bounding box not available"):
-        await reply_capable_instance._side_edge_click(mock_msg)
+    with patch("asyncio.sleep", new_callable=AsyncMock):
+        with pytest.raises(ReplyCapableError, match="side_edge_click failed after"):
+            await reply_capable_instance._side_edge_click(mock_msg)

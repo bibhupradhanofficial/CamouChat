@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import logging
 import os
+from logging import Logger, LoggerAdapter
 from typing import Optional, Dict, Union
 
 import camoufox.exceptions
@@ -11,10 +11,10 @@ from browserforge.fingerprints import Fingerprint
 from camoufox.async_api import AsyncCamoufox, launch_options
 from playwright.async_api import Page, BrowserContext
 
+from camouchat.BrowserManager.browser_config import BrowserConfig
 from camouchat.BrowserManager.profile_info import ProfileInfo
 from camouchat.Exceptions.base import BrowserException
 from camouchat.Interfaces.browser_interface import BrowserInterface
-from camouchat.BrowserManager.browser_config import BrowserConfig
 
 
 class CamoufoxBrowser(BrowserInterface):
@@ -32,30 +32,21 @@ class CamoufoxBrowser(BrowserInterface):
         self,
         config: BrowserConfig,
         profile: ProfileInfo,
-        log: Union[logging.Logger, logging.LoggerAdapter],
+        log: Optional[Union[Logger, LoggerAdapter]] = None,
     ) -> None:
         """
-        :param cache_dir_path: saves the browser cache dir
-        :param BrowserForge: Obj of BrowserForge
-        :param log: obj of logging
-        :param addons: a List of str of addons downloaded path.
-        they will be reflected to the browser as browser will load those addons file.
-        also path given should be correct not bad. better to leave as empty but given for more safety check.
-        Default to Empty List []
-        :param headless: determines of browser being visible or not. Defaults to False
-        :param locale: headers for site.
-        :param enable_cache: good for when debugging, makes the browser to remember last/forward visited pages.
-        Default is True .
+        Initializes the Camoufox browser manager.
+
+        Args:
+            config: Browser configuration (locale, headless, proxy, geoip, etc.)
+            profile: Profile information for session isolation and fingerprint persistence.
+            log: Logger instance for audit and error tracking.
         """
+        super().__init__(log=log)
         self.config = config
         self.profile = profile
-        self.BrowserForge = config.fingerprint_obj  # streamline the same flow
+        self.BrowserForge = config.fingerprint_obj
         self.browser: Optional[BrowserContext] = None
-        self.log = log
-
-        # Path compulsory. If user want to specific , they can. Else can use from directory.py
-        if self.log is None:
-            raise BrowserException("Logger is missing from the browser instance.")
 
         if self.BrowserForge is None:
             raise BrowserException("BrowserForge is missing from the browser instance.")
@@ -76,10 +67,30 @@ class CamoufoxBrowser(BrowserInterface):
             self.browser = await self.__GetBrowser__()
             pid = os.getpid()
             self.Map[pid] = self.browser
-            self.profile.last_active_pid = pid  # keep in-memory snapshot in sync
+            self.profile.last_active_pid = pid  # in-memory snapshot in sync
         return self.browser
 
     async def __GetBrowser__(self, tries: int = 1) -> BrowserContext:
+        """
+        Internal method to launch the Camoufox browser with anti-detection enabled.
+
+        Configures the browser with:
+        - Persistent context (session isolation)
+        - Fingerprint spoofing (from BrowserForge)
+        - GeoIP spoofing (coordinates, timezone, language matching)
+        - Proxy configuration (residential proxies recommended)
+        - Humanization (smooth mouse movements)
+        - DOM caching (optional)
+
+        Args:
+            tries: Current retry attempt number (max 5).
+
+        Returns:
+            The launched Playwright BrowserContext.
+
+        Raises:
+            BrowserException: If the browser fails to launch or IP is rejected after max tries.
+        """
         if self.browser is not None:
             return self.browser
 
@@ -94,7 +105,8 @@ class CamoufoxBrowser(BrowserInterface):
                     locale=self.config.locale,
                     headless=self.config.headless,
                     humanize=True,
-                    geoip=True,
+                    geoip=self.config.geoip,
+                    proxy=self.config.proxy,
                     fingerprint=fg,
                     enable_cache=self.config.enable_cache,
                     i_know_what_im_doing=True,

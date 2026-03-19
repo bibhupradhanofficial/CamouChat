@@ -6,9 +6,8 @@ Uses async operations for non-blocking performance.
 from __future__ import annotations
 
 import asyncio
-import logging
-import weakref
-from typing import List, Dict, Any, Optional, Sequence
+from logging import Logger, LoggerAdapter
+from typing import List, Dict, Any, Optional, Sequence, Union
 
 from sqlalchemy import select, exists
 from sqlalchemy.exc import IntegrityError
@@ -19,6 +18,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
 )
 
+from camouchat.BrowserManager import ProfileInfo
 from camouchat.Exceptions.base import StorageError
 from camouchat.Interfaces.message_interface import MessageInterface
 from camouchat.Interfaces.storage_interface import StorageInterface
@@ -56,7 +56,7 @@ class SQLAlchemyStorage(StorageInterface):
     def __init__(
         self,
         queue: asyncio.Queue,
-        log: logging.Logger,
+        log: Optional[Union[Logger, LoggerAdapter]] = None,
         database_url: str = "sqlite+aiosqlite:///messages.db",
         batch_size: int = 50,
         flush_interval: float = 2.0,
@@ -76,6 +76,7 @@ class SQLAlchemyStorage(StorageInterface):
             echo: Enable SQL query logging (for debugging)
         """
         super().__init__(queue=queue, log=log)
+
         self.database_url = database_url
         self._initialized = True
         self.batch_size = batch_size
@@ -90,9 +91,9 @@ class SQLAlchemyStorage(StorageInterface):
     @classmethod
     def from_profile(
         cls,
-        profile,  # ProfileInfo type (avoiding import)
+        profile: ProfileInfo,
         queue: asyncio.Queue,
-        log: logging.Logger,
+        log: Optional[Union[Logger, LoggerAdapter]],
         batch_size: int = 50,
         flush_interval: float = 2.0,
     ) -> "SQLAlchemyStorage":
@@ -109,7 +110,7 @@ class SQLAlchemyStorage(StorageInterface):
         Returns:
             Configured SQLAlchemyStorage instance
         """
-        database_url = f"sqlite+aiosqlite:///{profile.database_path}"
+        database_url = profile.database_url
         return cls(
             queue=queue,
             log=log,
@@ -122,9 +123,6 @@ class SQLAlchemyStorage(StorageInterface):
         """Initialize SQLAlchemy engine and session factory."""
         try:
             is_sqlite = self.database_url.startswith("sqlite")
-
-            # SQLite (aiosqlite) uses StaticPool/NullPool and does NOT support
-            # pool_size or max_overflow — passing them raises ArgumentError.
             engine_kwargs: dict = {
                 "echo": self.echo,
                 "pool_pre_ping": True,
@@ -156,7 +154,7 @@ class SQLAlchemyStorage(StorageInterface):
             raise StorageError("Database not initialized. Call init_db() first.")
 
         try:
-            async with self._engine.begin() as conn:
+            async with self._engine.begin() as conn:  # type: ignore
                 await conn.run_sync(Base.metadata.create_all)
             self.log.info("Tables created/verified.")
         except Exception as e:
@@ -184,7 +182,7 @@ class SQLAlchemyStorage(StorageInterface):
         if not self._engine:
             return
 
-        async with self._engine.begin() as conn:
+        async with self._engine.begin() as conn:  # type: ignore
             for sql in migration_sqls:
                 try:
                     await conn.execute(text(sql))

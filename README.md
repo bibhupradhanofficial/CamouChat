@@ -25,47 +25,9 @@
 
 ## Why CamouChat?
 
-WhatsApp automation today suffers from fragmentation, instability, and lack of long-term reliability.  
 Before building CamouChat, several existing libraries were evaluated to understand current limitations.
 
----
-
-### Existing Libraries Overview
-
-1. **[pywhatkit](https://github.com/Ankit404butfound/PyWhatKit)**  
-   Simple and beginner-friendly, but:
-   - Last active ~2 years ago  
-   - Relies on fragile selector-based automation  
-   - No session persistence  
-   - No account safety or profile isolation  
-
-2. **[pywhatsapp](https://github.com/tax/pywhatsapp)**  
-   - Depends on older ecosystems like yowsup  
-   - Limited clarity on long-term reliability  
-   - Outdated with minimal recent activity  
-
-3. **[webwhatsap-wrapper](https://github.com/mukulhase/WebWhatsapp-Wrapper)**  
-   - Well documented  
-   - However, inactive (~6 years)  
-   - Not reliable for modern WhatsApp updates  
-
-4. **[alright](https://github.com/Kalebu/alright)**  
-   - Clean API design  
-   - Handles login/session  
-   - But lacks:
-     - Multi-profile support  
-     - Fingerprinting control  
-     - Strong reliability guarantees  
-
-5. **[WAHA](https://github.com/devlikeapro/waha)**  
-   - Fast REST-based automation approach  
-   - However:
-     - Requires deeper networking understanding  
-     - External API exposure considerations  
-     - Limited focus on account safety and stealth  
-     - No native profile isolation system  
-
----
+WhatsApp libs analysis : [[**docs**]](docs/Platforms/Analysis/whatsapp_libs.md)
 
 ### Problem Summary
 
@@ -93,13 +55,13 @@ Instead of competing on raw API speed, CamouChat focuses on building a **stable 
 
 ---
 
-## Key Benefits
+## Key Benefits --------------------------
 
 1. **Anti-Detection Browser Layer**  
-   Built on [Camoufox](https://github.com/daijro/camoufox), a patched Playwright-based Firefox with stealth-oriented capabilities.
+   Built on [[**Camoufox**]](https://github.com/daijro/camoufox), a patched Playwright-based Firefox with stealth-oriented capabilities.
 
 2. **Dynamic Fingerprinting**  
-   Uses [BrowserForge](https://github.com/daijro/browserforge) for realistic and adaptive fingerprint generation.
+   Uses [[**BrowserForge**]](https://github.com/daijro/browserforge) for realistic and adaptive fingerprint generation.
 
 3. **Multi-Profile Management**  
    Run multiple isolated accounts with proper session separation and lifecycle control.
@@ -108,7 +70,7 @@ Instead of competing on raw API speed, CamouChat focuses on building a **stable 
    AES-GCM-256 encryption ensures internal data protection.
 
 5. **Database Flexibility & Safety**  
-   Powered by [SQLAlchemy](https://github.com/sqlalchemy/sqlalchemy):
+   Powered by [[**SQLAlchemy**]](https://github.com/sqlalchemy/sqlalchemy):
    - Supports multiple databases  
    - Uses parameterized queries to reduce injection risks  
 
@@ -156,7 +118,7 @@ CamouChat is built with a clear direction:
 ---
 
 
-## 📦 Installation
+##  --------------------------  Installation -------------------------- 
 
 ### Using `uv` (Recommended)
 
@@ -191,33 +153,26 @@ python -m camoufox fetch
 
 ---
 
-## ⚡ Quick Start
+## --------------------------  Quick Start -------------------------- 
 
-👉 **Quick Start Guides**: [[docs]](https://github.com/BITS-Rohit/tweakio-sdk/tree/main/docs)
+👉 **Quick Start Guides**: [[**docs**]](https://github.com/BITS-Rohit/tweakio-sdk/tree/main/docs)
 
 Whether you need basic chat fetching, multi-profile anti-detect sessions, or advanced async encrypted storage, you will find clean examples in the specific module guides.
 
 ---
 
-### 🗺️ Roadmap
+### 🗺 Roadmap ---------------------------------------------------- 
+Currently on [[**v0.6**]](docs/Series/v_0_6x.md)
+### v0.6 — Core Infrastructure : [[docs]](docs/Series/v_0_6x.md)
 
-### v0.6 — Core Infrastructure
-- [✅] Dedicated CamouChat Logger 
-- [✅] Multi-Account  & Multi-Platform Support Added
-- [✅] SandBoxed Browser and Profile Isolation Supported
-- [✅] SQL based Security Attacks safe [Uses SQL Alchemy]
-- [✅] Supports OS independent Directory resolve internally
-- [✅] Encryption & Decryption of messages & Chats.
-- [✅] Tests Coverage >=76% and MYPY , Black , Ruff, deptry Reports Fixed
 
------ soon shipping V0.6 on [[PYPI]]()
 ### v0.7 — WebSelector Stability Techniques 
 - [ ] Cherry Picked stable Selector Techniques 
 - [ ] WhatsApp Stability Increase
 - [ ] Tests >=80% & Lint Checking Updated.
 
 ### v0.8
-- [ ] Saving Media from whatsapp to local Feature
+- [ ] Saving Media from WhatsApp to local Feature
 - [ ] WebUI Hardening
 - [ ] Tests >=85% & Lint Checking updated.
 
@@ -230,7 +185,7 @@ Whether you need basic chat fetching, multi-profile anti-detect sessions, or adv
 
 ---
 
-### ❓ FAQ
+### -------------------------- FAQ -------------------------- 
 
 **Q: Will I get banned?**  
 A: It is rare but can happen on the least. Some preventions is that always use rate limiter given by the sdk. Dont spam. It uses Patched Browser so even if have to be done something it will be a soft ban [Soft ban : Browser gets logged out Not direct number ban : Tested with real numbers.]. Still if u have a spare account use that first for 100% safe.
@@ -244,11 +199,13 @@ Also limited behavior.We automate the web itself. **-- Free and Open Source**
 
 ---
 
-### 📄 License
+### --------------------------  License -------------------------- 
 
-MIT License — see [[LICENSE]](LICENSE)
+MIT License — see [[**LICENSE**]](LICENSE)
 
-## ⚠️ Security & Usage Guidelines
+---
+
+## ⚠ Security & Usage Guidelines -------------------------- 
 
 CamouChat is intended for **educational, research, and controlled automation use cases**.  
 By using this SDK, you agree to use it responsibly and in compliance with applicable laws and platform policies.
@@ -304,10 +261,15 @@ By using this SDK, you agree to use it responsibly and in compliance with applic
 
 ---
 
-### Ethical Use
+### Ethical Use 
 
 > CamouChat is designed to assist development and automation workflows.  
 > It should not be used to exploit, abuse, or disrupt platforms or users.
 
+---
 
-_Built with ❤️ by BITS-Rohit and the [[CamouChat]](https://github.com/BITS-Rohit/tweakio-sdk) community_
+## 💖 Thanks to all our Contributors!
+
+---
+
+_Built with ❤️ by BITS-Rohit and the [**CamouChat**](https://github.com/BITS-Rohit/tweakio-sdk) community_

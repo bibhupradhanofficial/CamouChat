@@ -20,7 +20,7 @@ from camouchat.Exceptions import (
     ChatProcessorError,
     ChatUnreadError,
 )
-from camouchat.WhatsApp.DerivedTypes.Chat import whatsapp_chat
+from camouchat.WhatsApp.models.chat import Chat
 from camouchat.WhatsApp.chat_processor import ChatProcessor
 from camouchat.WhatsApp.web_ui_config import WebSelectorConfig
 
@@ -38,6 +38,9 @@ def mock_logger():
 def mock_page():
     page = AsyncMock(spec=Page)
     page.wait_for_timeout = AsyncMock()
+    page.mouse = Mock()
+    page.mouse.click = AsyncMock()
+    page.evaluate = AsyncMock(return_value={"x": 10, "y": 20, "width": 100, "height": 50})
     return page
 
 
@@ -48,7 +51,7 @@ def mock_ui_config():
 
 @pytest.fixture
 def chat_processor_instance(mock_page, mock_logger, mock_ui_config):
-    return ChatProcessor(page=mock_page, log=mock_logger, UIConfig=mock_ui_config)
+    return ChatProcessor(page=mock_page, log=mock_logger, ui_config=mock_ui_config)
 
 
 # ============================================================================
@@ -60,7 +63,7 @@ def chat_processor_instance(mock_page, mock_logger, mock_ui_config):
 async def test_init_page_none(mock_logger, mock_ui_config):
     """Test initialization fails if page is None."""
     with pytest.raises(ValueError, match="page must not be None"):
-        ChatProcessor(page=None, log=mock_logger, UIConfig=mock_ui_config)
+        ChatProcessor(page=None, log=mock_logger, ui_config=mock_ui_config)
 
 
 @pytest.mark.asyncio
@@ -84,7 +87,7 @@ async def test_fetch_chats_success(chat_processor_instance, mock_ui_config):
     assert len(chats) == 2
     assert chats[0].chat_name == "Chat A"
     assert chats[1].chat_name == "Chat B"
-    assert isinstance(chats[0], whatsapp_chat)
+    assert isinstance(chats[0], Chat)
 
 
 @pytest.mark.asyncio
@@ -100,54 +103,40 @@ async def test_fetch_chats_empty(chat_processor_instance, mock_ui_config):
 
 
 @pytest.mark.asyncio
-async def test_click_chat_success(chat_processor_instance):
+async def test_click_chat_success(chat_processor_instance, mock_page):
     """Test successful chat click."""
-    # Setup mock chat
-    mock_chat = Mock(spec=whatsapp_chat)
-    mock_ui = AsyncMock(spec=Locator)
-    mock_element = AsyncMock(spec=ElementHandle)
+    mock_chat = Mock(spec=Chat)
+    mock_chat.chat_name = "TestChat"
 
-    mock_chat.chat_ui = mock_ui
-    mock_ui.element_handle.return_value = mock_element
-
-    # For Locator check branch
-    mock_chat.chat_ui = mock_ui
-
-    # Execution
     result = await chat_processor_instance._click_chat(chat=mock_chat)
 
-    # Verification
     assert result is True
-    # Verify element_handle called for Locator
-    mock_ui.element_handle.assert_called_once()
-    mock_element.click.assert_called_once()
+    mock_page.evaluate.assert_called_once()
+    mock_page.mouse.click.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_click_chat_none(chat_processor_instance):
     """Test _click_chat raises proper error when chat is None."""
-    # Expect ChatClickError because ChatNotFoundError gets wrapped
-    with pytest.raises(ChatClickError, match="Error in click the given chat"):
+    with pytest.raises(ChatNotFoundError, match="None passed, expected Chat in _click_chat"):
         await chat_processor_instance._click_chat(chat=None)
 
 
 @pytest.mark.asyncio
-async def test_click_chat_retry_fails(chat_processor_instance):
-    """Test _click_chat handles element handle failure."""
-    mock_chat = Mock(spec=whatsapp_chat)
-    mock_ui = AsyncMock(spec=Locator)
-    # element_handle returns None
-    mock_ui.element_handle.return_value = None
-    mock_chat.chat_ui = mock_ui
+async def test_click_chat_retry_fails(chat_processor_instance, mock_page):
+    """Test _click_chat handles evaluation failure."""
+    mock_chat = Mock(spec=Chat)
+    mock_chat.chat_name = "TestChat"
+    mock_page.evaluate.return_value = None
 
-    with pytest.raises(ChatClickError, match="Error in click the given chat"):
-        await chat_processor_instance._click_chat(chat=mock_chat)
+    with pytest.raises(ChatClickError, match="CamouChat error in _click_chat"):
+        await chat_processor_instance._click_chat(chat=mock_chat, retries=2, base_delay=0.01)
 
 
 @pytest.mark.asyncio
 async def test_is_unread_count(chat_processor_instance):
     """Test is_unread returns 1 when numeric badge exists."""
-    mock_chat = Mock(spec=whatsapp_chat)
+    mock_chat = Mock(spec=Chat)
     mock_ui = AsyncMock(spec=Locator)
     mock_element = AsyncMock(spec=ElementHandle)
 
@@ -172,7 +161,7 @@ async def test_is_unread_count(chat_processor_instance):
 @pytest.mark.asyncio
 async def test_is_unread_no_badge(chat_processor_instance):
     """Test is_unread returns 0 when no badge found."""
-    mock_chat = Mock(spec=whatsapp_chat)
+    mock_chat = Mock(spec=Chat)
     mock_ui = AsyncMock(spec=Locator)
     mock_element = AsyncMock(spec=ElementHandle)
 
@@ -189,7 +178,7 @@ async def test_is_unread_no_badge(chat_processor_instance):
 @pytest.mark.asyncio
 async def test_do_unread_success(chat_processor_instance, mock_page):
     """Test do_unread successfully marks chat as unread."""
-    mock_chat = Mock(spec=whatsapp_chat)
+    mock_chat = Mock(spec=Chat)
     mock_ui = AsyncMock(spec=Locator)
     mock_element = AsyncMock(spec=ElementHandle)
 
@@ -224,7 +213,7 @@ async def test_do_unread_not_found(chat_processor_instance):
 @pytest.mark.asyncio
 async def test_do_unread_already_unread(chat_processor_instance, mock_page, mock_logger):
     """Test do_unread when chat is already unread (option not found, but 'read' is found)."""
-    mock_chat = Mock(spec=whatsapp_chat)
+    mock_chat = Mock(spec=Chat)
     mock_ui = AsyncMock(spec=Locator)
     mock_element = AsyncMock(spec=ElementHandle)
 
@@ -255,7 +244,7 @@ async def test_do_unread_already_unread(chat_processor_instance, mock_page, mock
 @pytest.mark.asyncio
 async def test_do_unread_option_missing(chat_processor_instance, mock_page, mock_logger):
     """Test do_unread when neither option is found."""
-    mock_chat = Mock(spec=whatsapp_chat)
+    mock_chat = Mock(spec=Chat)
     mock_ui = AsyncMock(spec=Locator)
     mock_element = AsyncMock(spec=ElementHandle)
     mock_chat.chat_ui = mock_ui
@@ -275,7 +264,7 @@ async def test_do_unread_option_missing(chat_processor_instance, mock_page, mock
 @pytest.mark.asyncio
 async def test_do_unread_timeout(chat_processor_instance, mock_page):
     """Test do_unread raises ChatUnreadError on timeout."""
-    mock_chat = Mock(spec=whatsapp_chat)
+    mock_chat = Mock(spec=Chat)
     mock_ui = AsyncMock(spec=Locator)
     mock_element = AsyncMock(spec=ElementHandle)
     mock_chat.chat_ui = mock_ui

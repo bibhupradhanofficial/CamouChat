@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-import logging
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional
+from logging import Logger, LoggerAdapter
+from typing import Dict, Optional, Sequence, Union
 
 from playwright.async_api import Page
 
 from camouchat.Interfaces.chat_interface import ChatInterface
 from camouchat.WhatsApp.web_ui_config import WebSelectorConfig
+from camouchat.camouchat_logger import camouchatLogger
 
 
 class ChatProcessorInterface(ABC):
@@ -18,14 +19,18 @@ class ChatProcessorInterface(ABC):
     capabilities: Dict[str, bool]
 
     def __init__(
-        self, log: logging.Logger, page: Page, UIConfig: WebSelectorConfig, **kwargs
+        self,
+        page: Page,
+        ui_config: WebSelectorConfig,
+        log: Optional[Union[Logger, LoggerAdapter]] = None,
+        **kwargs,
     ) -> None:
-        self.log = log
+        self.log = log or camouchatLogger
         self.page = page
-        self.UIConfig = UIConfig
+        self.UIConfig = ui_config
 
     @abstractmethod
-    async def fetch_chats(self, **kwargs) -> List[ChatInterface]:
+    async def fetch_chats(self, **kwargs) -> Sequence[ChatInterface]:
         """Fetch available chats from the UI."""
         ...
 
@@ -35,6 +40,8 @@ class ChatProcessorInterface(ABC):
         ...
 
     @abstractmethod
-    async def _get_Wrapped_Chat(self, **kwargs) -> List[ChatInterface]:
+    async def _get_Wrapped_Chat(
+        self, limit: int = 5, retry: int = 5, **kwargs
+    ) -> Sequence[ChatInterface]:
         """Extract and wrap chat elements."""
         ...

@@ -2,10 +2,13 @@
 Contract to Layer the Web UI Selector File
 """
 
-import logging
 from abc import ABC
+from logging import Logger, LoggerAdapter
+from typing import Optional, Union
 
 from playwright.async_api import Page
+
+from camouchat.camouchat_logger import camouchatLogger
 
 
 class WebUISelectorCapable(ABC):
@@ -15,6 +18,6 @@ class WebUISelectorCapable(ABC):
     with the custom web ui and Act as a Reference to TypeCheck
     """
 
-    def __init__(self, page: Page, log: logging.Logger, **kwargs):
+    def __init__(self, page: Page, log: Optional[Union[Logger, LoggerAdapter]], **kwargs):
         self.page = page
-        self.log = log
+        self.log = log or camouchatLogger

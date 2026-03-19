@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import hmac
-import logging
-from typing import List, Optional, Sequence
-
 import weakref
+from logging import Logger, LoggerAdapter
+from typing import List, Optional, Sequence, Union
+
 from playwright.async_api import Page
 
 from camouchat.Decorators.Chat_Click_decorator import ensure_chat_clicked
@@ -21,13 +22,14 @@ from camouchat.Exceptions.whatsapp import (
 from camouchat.Filter.message_filter import MessageFilter
 from camouchat.Interfaces.message_processor_interface import MessageProcessorInterface
 from camouchat.Interfaces.storage_interface import StorageInterface
-from camouchat.WhatsApp.DerivedTypes.Chat import whatsapp_chat
-from camouchat.WhatsApp.DerivedTypes.Message import whatsapp_message
+from camouchat.NoOpPattern import NoOpStorage, NoOpMessageFilter
 from camouchat.WhatsApp.chat_processor import ChatProcessor
+from camouchat.WhatsApp.models.chat import Chat
+from camouchat.WhatsApp.models.message import Message
 from camouchat.WhatsApp.web_ui_config import WebSelectorConfig
 
 
-class MessageProcessor(MessageProcessorInterface):
+class MessageProcessor(MessageProcessorInterface[Message, WebSelectorConfig]):
     """Extracts, encrypts (optionally), and stores messages from WhatsApp Web UI.
 
     Encryption behavior
@@ -48,11 +50,8 @@ class MessageProcessor(MessageProcessorInterface):
     _initialized: bool = False
 
     def __new__(cls, *args, **kwargs) -> MessageProcessor:
-        # MessageProcessor takes page as 5th positional arg or keyword
         page = kwargs.get("page") or (args[4] if len(args) > 4 else None)
         if page is None:
-            # Fallback for when we might not have it yet or it's incorrectly passed
-            # But in this SDK it should be there.
             return super(MessageProcessor, cls).__new__(cls)
 
         if page not in cls._instances:
@@ -62,13 +61,13 @@ class MessageProcessor(MessageProcessorInterface):
 
     def __init__(
         self,
-        storage_obj: Optional[StorageInterface],
-        filter_obj: Optional[MessageFilter],
         chat_processor: ChatProcessor,
         page: Page,
-        log: logging.Logger,
-        UIConfig: WebSelectorConfig,
+        ui_config: WebSelectorConfig,
+        storage_obj: Optional[StorageInterface] = None,
+        filter_obj: Optional[MessageFilter] = None,
         encryption_key: Optional[bytes] = None,
+        log: Optional[Union[Logger, LoggerAdapter]] = None,
     ) -> None:
         if hasattr(self, "_initialized") and self._initialized:
             return
@@ -77,8 +76,18 @@ class MessageProcessor(MessageProcessorInterface):
             filter_obj=filter_obj,
             log=log,
             page=page,
-            UIConfig=UIConfig,
+            UIConfig=ui_config,
         )
+
+        self.storage = storage_obj or NoOpStorage()
+        self.filter = filter_obj or NoOpMessageFilter()
+
+        if storage_obj is None:
+            self.log.info("Storage not provided → using NoOpStorage.")
+
+        if filter_obj is None:
+            self.log.info("Filter not provided → using NoOpMessageFilter.")
+
         self.chat_processor = chat_processor
 
         self.encryptor = None
@@ -110,7 +119,7 @@ class MessageProcessor(MessageProcessorInterface):
         """
         assert self._hmac_key is not None
         return hmac.new(  # type: ignore[attr-defined]
-            self._hmac_key, chat_name.encode("utf-8"), hashlib.sha256
+            self._hmac_key, chat_name.encode(), hashlib.sha256
         ).hexdigest()
 
     def _encrypt_chat_name(self, chat_name: str) -> tuple[str, str, str]:
@@ -123,14 +132,12 @@ class MessageProcessor(MessageProcessorInterface):
         nonce, ciphertext = self.encryptor.encrypt(chat_name)
         return (
             self._hmac_chat_name(chat_name),
-            base64.b64encode(ciphertext).decode("utf-8"),
-            base64.b64encode(nonce).decode("utf-8"),
+            base64.b64encode(ciphertext).decode(),
+            base64.b64encode(nonce).decode(),
         )
 
     @staticmethod
-    async def sort_messages(
-        msgList: Sequence[whatsapp_message], incoming: bool
-    ) -> List[whatsapp_message]:
+    async def sort_messages(msgList: Sequence[Message], incoming: bool) -> List[Message]:
         """Filter messages by direction (incoming or outgoing)."""
         if not msgList:
             raise MessageListEmptyError("Empty list passed in sort messages.")
@@ -140,94 +147,130 @@ class MessageProcessor(MessageProcessorInterface):
         return [msg for msg in msgList if msg.direction == "out"]
 
     @ensure_chat_clicked(lambda self, chat: self.chat_processor._click_chat(chat))
-    async def _get_wrapped_Messages(
-        self, chat: whatsapp_chat, retry: int = 3, *args, **kwargs
-    ) -> List[whatsapp_message]:
+    async def _get_wrapped_Messages(self, chat: Chat, retry: int, **kwargs) -> List[Message]:
 
-        wrapped_list: List[whatsapp_message] = []
-        try:
-            sc = self.UIConfig
-            all_Msgs = await sc.messages()
-            count = await all_Msgs.count()
-            c = 0
-            while c < retry and count == 0:
+        sc = self.UIConfig
+
+        for attempt in range(1, retry + 1):
+            try:
+                wrapped_list: List[Message] = []
+
                 all_Msgs = await sc.messages()
                 count = await all_Msgs.count()
-                c += 1
 
-            if not count:
-                raise MessageNotFoundError("Messages Not able to extract")
+                if count == 0:
+                    raise MessageNotFoundError("No messages found.")
 
-            for i in range(count):
-                msg = all_Msgs.nth(i)
-                text = await sc.get_message_text(msg)
-                data_id = await sc.get_dataID(msg)
+                for i in range(count):
+                    msg = all_Msgs.nth(i)
 
-                c2 = 0
-                while not data_id and c2 < 3:
+                    text = await sc.get_message_text(msg)
                     data_id = await sc.get_dataID(msg)
-                    c2 += 1
 
-                if not data_id:
-                    self.log.debug("Data ID is None/Empty — skipping message.")
-                    continue
+                    for _ in range(3):
+                        if data_id:
+                            break
+                        data_id = await sc.get_dataID(msg)
 
-                wrapped_list.append(
-                    whatsapp_message(
-                        message_ui=msg,
-                        direction="in" if await msg.locator(".message-in").count() > 0 else "out",
-                        raw_data=text,
-                        parent_chat=chat,
-                        data_id=data_id,
+                    if not data_id:
+                        self.log.debug("Skipping message (missing data_id).")
+                        continue
+
+                    wrapped_list.append(
+                        Message(
+                            message_ui=msg,
+                            direction=(
+                                "in" if await msg.locator(".message-in").count() > 0 else "out"
+                            ),
+                            raw_data=text,
+                            parent_chat=chat,
+                            data_id=data_id,
+                        )
                     )
-                )
 
-            return wrapped_list
-        except WhatsAppError as e:
-            raise MessageProcessorError("failed to wrap messages") from e
+                return wrapped_list
 
-    async def Fetcher(  # type: ignore[override]
-        self, chat: whatsapp_chat, retry: int, *args, **kwargs
-    ) -> List[whatsapp_message]:
-        """Fetch, optionally encrypt, store, and filter messages from a chat."""
-        msgList = await self._get_wrapped_Messages(chat, retry, *args, **kwargs)
+            except WhatsAppError as e:
+                if attempt < retry:
+                    self.log.debug(f"[Retry {attempt}/{retry}] WhatsAppError: {e}")
+                    await asyncio.sleep(0.5)
+                else:
+                    self.log.error(f"Failed after {retry} retries (WhatsAppError).")
+                    raise MessageProcessorError(
+                        f"Failed to wrap messages after {retry} retries."
+                    ) from e
 
-        if self.storage and msgList:
-            new_msgs = [
-                msg
-                for msg in msgList
-                if not await self.storage.check_message_if_exists_async(msg.message_id)
-            ]
-            if new_msgs:
-                if self.encryptor:
-                    chat_name = chat.chat_name
-                    chat_hmac, enc_chat_b64, chat_nonce_b64 = self._encrypt_chat_name(chat_name)
+            except Exception as e:
+                self.log.error("Unexpected error during message extraction", exc_info=True)
+                raise MessageProcessorError("Unexpected failure.") from e
+        raise MessageProcessorError("Unreachable state reached in message extraction.")
 
-                    for msg in new_msgs:
-                        raw = msg.raw_data or ""
-                        if raw:
-                            try:
-                                nonce, ciphertext = self.encryptor.encrypt_message(
-                                    raw, msg.message_id
-                                )
-                                msg.encrypted_message = base64.b64encode(ciphertext).decode()
-                                msg.encryption_nonce = base64.b64encode(nonce).decode()
-                                msg.raw_data = ""
-                            except Exception as e:
-                                self.log.warning(f"Failed to encrypt message {msg.message_id}: {e}")
-                        else:
-                            self.log.debug(
-                                f"Skipping body encryption for non-text message {msg.message_id}"
-                            )
+    async def fetch_messages(  # type: ignore[override]
+        self, chat: Chat, retry: Optional[int] = 5, **kwargs
+    ) -> List[Message]:
+        """Fetch, optionally encrypt, store, and filter messages from a chat.
+        param :
+            chat (Chat): Chat to fetch messages from.
+            retry (int): Number of times to retry the request. Default set to 5
+        kwargs :
+            only_new (bool): If True, returns only new messages.
+        """
 
-                        msg.encrypted_chat_name = enc_chat_b64
-                        msg.chat_name_nonce = chat_nonce_b64
-                        msg.parent_chat_name_index = chat_hmac
+        msgList = await self._get_wrapped_Messages(chat, retry, **kwargs)
 
-                await self.storage.enqueue_insert(msgs=new_msgs)
-                self.log.debug(f"Enqueued {len(new_msgs)}/{len(msgList)} new messages for storage.")
+        # -----------------------------
+        # Storage + Dedup
+        # -----------------------------
+        new_msgs = [
+            msg
+            for msg in msgList
+            if not await self.storage.check_message_if_exists_async(msg_id=msg.message_id)
+        ]
 
-        if self.filter:
-            msgList = self.filter.apply(msgList)
+        # -----------------------------
+        # Encryption Layer
+        # -----------------------------
+        if self.encryptor and new_msgs:
+            chat_name = chat.chat_name
+            chat_hmac, enc_chat_b64, chat_nonce_b64 = self._encrypt_chat_name(chat_name)
+
+            for msg in new_msgs:
+                raw = msg.raw_data or ""
+
+                if raw:
+                    try:
+                        nonce, ciphertext = self.encryptor.encrypt_message(raw, msg.message_id)
+                        msg.encrypted_message = base64.b64encode(ciphertext).decode()
+                        msg.encryption_nonce = base64.b64encode(nonce).decode()
+                        msg.raw_data = ""
+                    except Exception as e:
+                        self.log.warning(f"Failed to encrypt message {msg.message_id}: {e}")
+                else:
+                    self.log.debug(f"Skipping encryption (non-text): {msg.message_id}")
+
+                msg.encrypted_chat_name = enc_chat_b64
+                msg.chat_name_nonce = chat_nonce_b64
+                msg.parent_chat_name_index = chat_hmac
+
+        # -----------------------------
+        # Storage (NoOp safe)
+        # -----------------------------
+        if new_msgs:
+            await self.storage.enqueue_insert(msgs=new_msgs)
+            self.log.debug(f"Stored {len(new_msgs)}/{len(msgList)} messages.")
+
+        # -----------------------------
+        # Filtering (NoOp safe)
+        # -----------------------------
+        if new_msgs:
+            allowed_new = self.filter.apply(msgs=new_msgs)
+            # Reconstruct list: old messages + allowed new messages
+            # (Applying filter to all msgs repeatedly flags old messages as spam)
+            msgList = [m for m in msgList if m not in new_msgs] + allowed_new
+        else:
+            allowed_new = []
+
+        if kwargs.get("only_new", False):
+            return allowed_new
 
         return msgList

@@ -10,7 +10,7 @@ import pytest
 from playwright.async_api import Page, Locator, TimeoutError as PlaywrightTimeoutError
 
 from camouchat.Exceptions.base import ElementNotFoundError, HumanizedOperationError
-from camouchat.WhatsApp.humanized_operations import HumanizedOperations
+from camouchat.WhatsApp.human_interaction_controller import HumanInteractionController
 from camouchat.WhatsApp.web_ui_config import WebSelectorConfig
 
 # ============================================================================
@@ -37,8 +37,10 @@ def mock_ui_config():
 
 @pytest.fixture
 def humanize_fixture(mock_page, mock_logger, mock_ui_config):
-    with patch("camouchat.WhatsApp.humanized_operations.pyperclip") as mock_clip:
-        humanize = HumanizedOperations(page=mock_page, log=mock_logger, UIConfig=mock_ui_config)
+    with patch("camouchat.WhatsApp.human_interaction_controller.pyperclip") as mock_clip:
+        humanize = HumanInteractionController(
+            page=mock_page, log=mock_logger, ui_config=mock_ui_config
+        )
         yield humanize, mock_clip
 
 
@@ -50,7 +52,7 @@ def humanize_fixture(mock_page, mock_logger, mock_ui_config):
 @pytest.mark.asyncio
 async def test_init_page_none(mock_logger, mock_ui_config):
     with pytest.raises(ValueError, match="page must not be None"):
-        HumanizedOperations(page=None, log=mock_logger, UIConfig=mock_ui_config)
+        HumanInteractionController(page=None, log=mock_logger, ui_config=mock_ui_config)
 
 
 @pytest.mark.asyncio

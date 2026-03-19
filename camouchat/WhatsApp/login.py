@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-import logging
+from logging import Logger, LoggerAdapter
 import random
 import re
 
 import weakref
 from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError, Locator
-from typing import Optional
+from typing import Optional, Union
 from camouchat.Exceptions.whatsapp import LoginError
 from camouchat.Interfaces.login_interface import LoginInterface
 from camouchat.WhatsApp.web_ui_config import WebSelectorConfig
@@ -30,7 +30,12 @@ class Login(LoginInterface):
             cls._instances[page] = instance
         return cls._instances[page]
 
-    def __init__(self, page: Page, UIConfig: WebSelectorConfig, log: logging.Logger):
+    def __init__(
+        self,
+        page: Page,
+        UIConfig: WebSelectorConfig,
+        log: Optional[Union[Logger, LoggerAdapter]] = None,
+    ):
         if hasattr(self, "_initialized") and self._initialized:
             return
         if page is None:
@@ -128,6 +133,7 @@ class Login(LoginInterface):
             raise LoginError(f"No countries found for input: {country}")
 
         def normalize(name: str) -> str:
+            """Normalize hte name"""
             return "".join(c for c in name if c.isalpha() or c.isspace()).lower().strip()
 
         target_country = normalize(country)
