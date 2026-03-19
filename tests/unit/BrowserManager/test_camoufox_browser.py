@@ -73,6 +73,7 @@ def mock_profile_info(tmp_path):
         media_voice_dir=tmp_path,
         media_documents_dir=tmp_path,
         database_path=tmp_path / "db",
+        database_url="sqlite:///test.db",
         is_active=False,
         last_active_pid=None,
         encryption={},
@@ -109,13 +110,14 @@ def test_init_success(mock_browser_config, mock_profile_info, mock_logger):
 
 
 def test_init_missing_logger(mock_browser_config, mock_profile_info):
-    """Test CamoufoxBrowser raises error without logger."""
-    with pytest.raises(BrowserException, match="Logger is missing"):
-        CamoufoxBrowser(
-            config=mock_browser_config,
-            profile=mock_profile_info,
-            log=None,
-        )
+    """Test CamoufoxBrowser uses default logger when log is None."""
+    browser = CamoufoxBrowser(
+        config=mock_browser_config,
+        profile=mock_profile_info,
+        log=None,
+    )
+    from camouchat.camouchat_logger import camouchatLogger
+    assert browser.log == camouchatLogger
 
 
 def test_init_missing_browserforge(mock_browser_config, mock_profile_info, mock_logger):

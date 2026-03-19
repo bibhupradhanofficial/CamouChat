@@ -38,6 +38,9 @@ def mock_logger():
 def mock_page():
     page = AsyncMock(spec=Page)
     page.wait_for_timeout = AsyncMock()
+    page.mouse = Mock()
+    page.mouse.click = AsyncMock()
+    page.evaluate = AsyncMock(return_value={"x": 10, "y": 20, "width": 100, "height": 50})
     return page
 
 
@@ -100,48 +103,34 @@ async def test_fetch_chats_empty(chat_processor_instance, mock_ui_config):
 
 
 @pytest.mark.asyncio
-async def test_click_chat_success(chat_processor_instance):
+async def test_click_chat_success(chat_processor_instance, mock_page):
     """Test successful chat click."""
-    # Setup mock chat
     mock_chat = Mock(spec=Chat)
-    mock_ui = AsyncMock(spec=Locator)
-    mock_element = AsyncMock(spec=ElementHandle)
+    mock_chat.chat_name = "TestChat"
 
-    mock_chat.chat_ui = mock_ui
-    mock_ui.element_handle.return_value = mock_element
-
-    # For Locator check branch
-    mock_chat.chat_ui = mock_ui
-
-    # Execution
     result = await chat_processor_instance._click_chat(chat=mock_chat)
 
-    # Verification
     assert result is True
-    # Verify element_handle called for Locator
-    mock_ui.element_handle.assert_called_once()
-    mock_element.click.assert_called_once()
+    mock_page.evaluate.assert_called_once()
+    mock_page.mouse.click.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_click_chat_none(chat_processor_instance):
     """Test _click_chat raises proper error when chat is None."""
-    # Expect ChatClickError because ChatNotFoundError gets wrapped
-    with pytest.raises(ChatClickError, match="Error in click the given chat"):
+    with pytest.raises(ChatNotFoundError, match="None passed, expected Chat in _click_chat"):
         await chat_processor_instance._click_chat(chat=None)
 
 
 @pytest.mark.asyncio
-async def test_click_chat_retry_fails(chat_processor_instance):
-    """Test _click_chat handles element handle failure."""
+async def test_click_chat_retry_fails(chat_processor_instance, mock_page):
+    """Test _click_chat handles evaluation failure."""
     mock_chat = Mock(spec=Chat)
-    mock_ui = AsyncMock(spec=Locator)
-    # element_handle returns None
-    mock_ui.element_handle.return_value = None
-    mock_chat.chat_ui = mock_ui
+    mock_chat.chat_name = "TestChat"
+    mock_page.evaluate.return_value = None
 
-    with pytest.raises(ChatClickError, match="Error in click the given chat"):
-        await chat_processor_instance._click_chat(chat=mock_chat)
+    with pytest.raises(ChatClickError, match="CamouChat error in _click_chat"):
+        await chat_processor_instance._click_chat(chat=mock_chat, retries=2, base_delay=0.01)
 
 
 @pytest.mark.asyncio

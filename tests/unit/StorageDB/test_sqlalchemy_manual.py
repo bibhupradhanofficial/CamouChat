@@ -102,7 +102,7 @@ async def test_profile_integration():
     print("=" * 60)
 
     # Create profile
-    pm = ProfileManager(app_name="tweakio_sqlalchemy_test")
+    pm = ProfileManager()
     print("\n📝 Creating test profile...")
     profile = pm.create_profile("whatsapp", "sqlalchemy_test")
 

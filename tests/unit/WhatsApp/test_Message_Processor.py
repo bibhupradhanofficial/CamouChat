@@ -170,7 +170,7 @@ async def test_get_wrapped_messages_exception(message_processor_instance, mock_u
     mock_chat = Mock(spec=Chat)
     mock_ui_config.messages.side_effect = WhatsAppError("UI Error")
 
-    with pytest.raises(MessageProcessorError, match="failed to wrap messages"):
+    with pytest.raises(MessageProcessorError, match="Failed to wrap messages"):
         await message_processor_instance._get_wrapped_Messages(chat=mock_chat, retry=1)
 
 
@@ -197,7 +197,7 @@ async def test_fetcher_with_storage_deduplication(
     processor._get_wrapped_Messages = AsyncMock(return_value=[msg1, msg2])
 
     # Mock storage existence check: msg-1 exists, msg-2 is new
-    mock_storage.check_message_if_exists_async.side_effect = lambda mid: mid == "msg-1"
+    mock_storage.check_message_if_exists_async.side_effect = lambda msg_id: msg_id == "msg-1"
 
     # Execution
     await processor.fetch_messages(chat=Mock(), retry=1)
@@ -225,6 +225,7 @@ async def test_fetcher_with_filter(
     )
 
     msg1 = Mock(spec=Message)
+    msg1.message_id = "msg-1"
     processor._get_wrapped_Messages = AsyncMock(return_value=[msg1])
 
     mock_filter.apply.side_effect = None  # Clear default lambda
@@ -253,6 +254,7 @@ async def test_fetcher_empty_after_filter(
     )
 
     msg1 = Mock(spec=Message)
+    msg1.message_id = "msg-1"
     processor._get_wrapped_Messages = AsyncMock(return_value=[msg1])
 
     mock_filter.apply.side_effect = None  # Clear default lambda
@@ -305,4 +307,4 @@ async def test_get_wrapped_messages_no_data_id(
     # Should be empty list
     assert msgs == []
     # Log should indicate skipping
-    mock_logger.debug.assert_any_call("Data ID is None/Empty — skipping message.")
+    mock_logger.debug.assert_any_call("Skipping message (missing data_id).")

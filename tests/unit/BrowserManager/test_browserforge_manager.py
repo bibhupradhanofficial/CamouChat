@@ -56,9 +56,10 @@ def test_init_success(mock_logger):
 
 
 def test_init_no_logger():
-    """Test BrowserForgeCompatible raises error without logger."""
-    with pytest.raises(BrowserException, match="log not given"):
-        BrowserForgeCompatible(log=None)
+    """Test BrowserForgeCompatible uses default logger when not provided."""
+    bf = BrowserForgeCompatible(log=None)
+    from camouchat.camouchat_logger import camouchatLogger
+    assert bf.log == camouchatLogger
 
 
 # ============================================================================

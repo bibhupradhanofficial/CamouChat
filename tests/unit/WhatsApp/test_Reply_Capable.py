@@ -4,7 +4,7 @@ Tests cover replying to messages and message selection.
 """
 
 import logging
-from unittest.mock import Mock, AsyncMock
+from unittest.mock import Mock, AsyncMock, patch
 
 import pytest
 from playwright.async_api import Page, Locator, TimeoutError as PlaywrightTimeoutError, Position
@@ -29,6 +29,10 @@ def mock_logger():
 def mock_page():
     page = AsyncMock(spec=Page)
     page.keyboard = AsyncMock()
+    page.mouse = Mock()
+    page.mouse.click = AsyncMock()
+    page.evaluate = AsyncMock()
+    page.wait_for_timeout = AsyncMock()
     return page
 
 
@@ -97,43 +101,32 @@ async def test_reply_timeout(reply_capable_instance, mock_humanize):
 
 
 @pytest.mark.asyncio
-async def test_side_edge_click_success(reply_capable_instance):
+async def test_side_edge_click_success(reply_capable_instance, mock_page):
     """Test _side_edge_click successfully triggers reply click."""
     mock_msg = Mock(spec=Message)
-    mock_msg.isIncoming.return_value = True
+    mock_msg.data_id = "test-id"
+    mock_msg.direction = "IN"
 
-    # Setup mock UI
-    mock_msg_ui = AsyncMock(spec=Locator)
-    # Ensure element_handle returns the SAME mock so subsequent calls like bounding_box work
-    mock_msg_ui.element_handle.return_value = mock_msg_ui
-    mock_msg.message_ui = mock_msg_ui
-
-    # Setup Bounding Box
-    mock_msg_ui.bounding_box.return_value = {"x": 100, "y": 200, "width": 50, "height": 30}
+    mock_page.evaluate.return_value = {"x": 100, "y": 200, "width": 50, "height": 30}
 
     await reply_capable_instance._side_edge_click(mock_msg)
 
-    # Verification: It calls click(click_count=2) on the element handle
-    # Arguments: position={x: 10 + width*0.2 = ?}, click_count=2
-    # box width=50. incoming=True -> factor 0.2 -> rel_x = 10.
-    # box height=30. rel_y = 15.
-
-    # We assert that click was called with correct parameters
-    assert mock_msg_ui.click.called
-    kwargs = mock_msg_ui.click.call_args.kwargs
+    assert mock_page.mouse.click.called
+    kwargs = mock_page.mouse.click.call_args.kwargs
     assert kwargs["click_count"] == 2
-    assert kwargs["position"] == Position(x=10.0, y=15.0)
+    assert kwargs["x"] == 110.0
+    assert kwargs["y"] == 215.0
 
 
 @pytest.mark.asyncio
-async def test_side_edge_click_no_bbox(reply_capable_instance):
+async def test_side_edge_click_no_bbox(reply_capable_instance, mock_page):
     """Test _side_edge_click raises error if bbox is None."""
     mock_msg = Mock(spec=Message)
-    mock_msg_ui = AsyncMock(spec=Locator)
-    mock_msg_ui.element_handle.return_value = mock_msg_ui  # Return self
-    mock_msg.message_ui = mock_msg_ui
+    mock_msg.data_id = "test-id"
+    
+    mock_page.evaluate.return_value = None
 
-    mock_msg_ui.bounding_box.return_value = None
+    with patch("asyncio.sleep", new_callable=AsyncMock):
+        with pytest.raises(ReplyCapableError, match="side_edge_click failed after"):
+            await reply_capable_instance._side_edge_click(mock_msg)
 
-    with pytest.raises(ReplyCapableError, match="message bounding box not available"):
-        await reply_capable_instance._side_edge_click(mock_msg)
