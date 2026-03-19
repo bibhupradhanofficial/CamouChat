@@ -72,6 +72,18 @@ config = BrowserConfig.from_dict({
     # False = fresh DOM on every page load (recommended for production).
     # True = reuse cached resources (useful for debugging slow connections).
 
+    "geoip": True,
+    # Auto-spoof geolocation, timezone, and language matching the IP address.
+    # Highly recommended when using proxies to avoid detection mismatch.
+
+    "proxy": {
+        "server": "http://your-residential-proxy.com:22225",
+        "username": "customer-abc-res-residential",
+        "password": "yourpassword123",
+    },
+    # Optional — Residential proxies are recommended for the best stealth.
+    # Camoufox uses this to route traffic and verify your target geolocation.
+
     "fingerprint_obj": bf,
     # Pass the BrowserForgeCompatible INSTANCE (not the generated Fingerprint).
     # The browser calls get_fg(profile) internally at launch time.

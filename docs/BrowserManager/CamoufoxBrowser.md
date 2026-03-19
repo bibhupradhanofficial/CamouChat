@@ -131,6 +131,8 @@ The actual Camoufox launch logic. It:
 | `locale` | `str` | `"en-US"` | Sent as the `Accept-Language` header / browser locale. Match your region to avoid geo-detection. |
 | `headless` | `bool` | `False` | `False` = invisible browser. When `ProfileManager.activate_profile()` detects more than 1 active profile, it forcibly sets this to `True` for the new browser to conserve display resources. |
 | `enable_cache` | `bool` | `False` | Enables Camoufox's internal DOM cache. Useful during debugging (`True`). Keep `False` in production to save RAM and prevent stale-DOM issues. |
+| `geoip` | `bool` | `True` | **Spoofs geolocation** (coords, timezone, country) based on IP. Recommended with proxies. |
+| `proxy` | `dict` | `None` | Proxy config (server, username, password). **Residential proxies** are strongly recommended. |
 | `fingerprint_obj` | `BrowserForgeCapable` | (required) | The fingerprint generator. Must not be `None`; the browser calls `get_fg()` on it at launch. |
 | `prefs` | `dict` | `{}` | Raw Firefox `user.js` preferences. Pass `{}` in stealth mode — custom prefs can betray automation. |
 | `addons` | `list[str]` | `[]` | Absolute local paths to browser extension `.zip`/`.xpi` files to load on startup. |
@@ -141,10 +143,14 @@ config = BrowserConfig.from_dict({
     "platform": Platform.WHATSAPP,
     "locale": "en-IN",
     "headless": False,
+    "geoip": True,
+    "proxy": {
+        "server": "http://your-residential-proxy.com:8080",
+        "username": "your_user",
+        "password": "your_password"
+    },
     "enable_cache": False,
     "fingerprint_obj": BrowserForgeCompatible(),
-    "prefs": {},
-    "addons": [],
 })
 ```
 
@@ -153,7 +159,8 @@ config = BrowserConfig.from_dict({
 ## 🛡️ Why Camoufox?
 
 - **Fingerprint Spoofing**: Every HTTP/JS attribute that fingerprinting scripts interrogate (user-agent, platform, screen, fonts, WebGL, Canvas, AudioContext, etc.) is consistently spoofed to match the generated `Fingerprint` object.
-- **GeoIP Awareness**: `geoip=True` makes the browser advertise a geolocation that matches your IP address — eliminating a common fingerprinting signal mismatch.
+- **GeoIP Awareness**: `geoip=True` makes the browser advertise a geolocation (coordinates, timezone, language) that matches your IP address — eliminating a common fingerprinting signal mismatch. This also spoofs the WebRTC IP address.
+- **Proxy Support**: Full integration for proxies with residential proxy recommendations to ensure the highest levels of stealth and session reliability.
 - **Humanization**: `humanize=True` enables Camoufox's built-in mouse trajectory randomization and jitter, layered on top of the SDK's own `HumanInteractionController`.
 - **Session Persistence**: Cookies, local storage, and service workers are preserved between runs in `profile.cache_dir`.
 

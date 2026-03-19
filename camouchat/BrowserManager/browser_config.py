@@ -18,12 +18,28 @@ class BrowserConfig:
     enable_cache: bool
     headless: bool
     fingerprint_obj: BrowserForgeCapable
+    geoip: bool = True
+    proxy: Optional[Dict[str, str]] = None
     prefs: Optional[Dict[str, bool]] = None
     addons: List[str] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: Dict) -> BrowserConfig:
-        """dict should expose exact same name in the above given params."""
+        """
+        Creates a BrowserConfig instance from a dictionary.
+        
+        Args:
+            data: Dictionary containing configuration parameters.
+                 - platform: Target platform (e.g., Platform.WHATSAPP)
+                 - locale: Browser locale (e.g., "en-US")
+                 - enable_cache: Whether to use browser cache
+                 - headless: Whether to run in headless mode
+                 - geoip: Whether to use GeoIP spoofing (default: True)
+                 - proxy: Proxy configuration dictionary (server, username, password)
+                 - prefs: Firefox user preferences
+                 - addons: List of absolute paths to extensions
+                 - fingerprint_obj: BrowserForgeCapable instance
+        """
         return cls(
             platform=data.get("platform", Platform.WHATSAPP),
             locale=data.get("locale", "en-US"),
@@ -32,4 +48,7 @@ class BrowserConfig:
             prefs=data.get("prefs", {}),
             addons=data.get("addons", []),
             fingerprint_obj=data["fingerprint_obj"],
+            geoip=data.get("geoip", True),
+            proxy=data.get("proxy"),
         )
+

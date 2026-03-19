@@ -35,17 +35,12 @@ class CamoufoxBrowser(BrowserInterface):
         log: Optional[Union[Logger, LoggerAdapter]] = None,
     ) -> None:
         """
-        :param cache_dir_path: saves the browser cache dir
-        :param BrowserForge: Obj of BrowserForge
-        :param log: obj of logging
-        :param addons: a List of str of addons downloaded path.
-        they will be reflected to the browser as browser will load those addons file.
-        also path given should be correct not bad. better to leave as empty but given for more safety check.
-        Default to Empty List []
-        :param headless: determines of browser being visible or not. Defaults to False
-        :param locale: headers for site.
-        :param enable_cache: good for when debugging, makes the browser to remember last/forward visited pages.
-        Default is True .
+        Initializes the Camoufox browser manager.
+
+        Args:
+            config: Browser configuration (locale, headless, proxy, geoip, etc.)
+            profile: Profile information for session isolation and fingerprint persistence.
+            log: Logger instance for audit and error tracking.
         """
         super().__init__(log=log)
         self.config = config
@@ -76,6 +71,26 @@ class CamoufoxBrowser(BrowserInterface):
         return self.browser
 
     async def __GetBrowser__(self, tries: int = 1) -> BrowserContext:
+        """
+        Internal method to launch the Camoufox browser with anti-detection enabled.
+
+        Configures the browser with:
+        - Persistent context (session isolation)
+        - Fingerprint spoofing (from BrowserForge)
+        - GeoIP spoofing (coordinates, timezone, language matching)
+        - Proxy configuration (residential proxies recommended)
+        - Humanization (smooth mouse movements)
+        - DOM caching (optional)
+
+        Args:
+            tries: Current retry attempt number (max 5).
+
+        Returns:
+            The launched Playwright BrowserContext.
+
+        Raises:
+            BrowserException: If the browser fails to launch or IP is rejected after max tries.
+        """
         if self.browser is not None:
             return self.browser
 
@@ -90,7 +105,8 @@ class CamoufoxBrowser(BrowserInterface):
                     locale=self.config.locale,
                     headless=self.config.headless,
                     humanize=True,
-                    geoip=True,
+                    geoip=self.config.geoip,
+                    proxy=self.config.proxy,
                     fingerprint=fg,
                     enable_cache=self.config.enable_cache,
                     i_know_what_im_doing=True,
