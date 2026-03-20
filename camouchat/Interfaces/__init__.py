@@ -1,5 +1,5 @@
 """
-Abstract interfaces and protocols for tweakio components.
+Abstract interfaces and protocols for camouchat components.
 
 These interfaces define contracts that platform-specific implementations
 must follow, enabling clean separation between core logic and platform integrations.

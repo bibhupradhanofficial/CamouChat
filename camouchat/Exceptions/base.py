@@ -1,17 +1,17 @@
 """
-Tweakio SDK Custom Exceptions
+camouchat SDK Custom Exceptions
 
 Hierarchy:
-    TweakioError etc. (Base.py)
+    camouchatError etc. (Base.py)
     ├── WhatsApp.py
         ├── ChatError,
         └── MessageError etc.
 """
 
 
-# -------------------- Base Tweakio Error --------------------
+# -------------------- Base camouchat Error --------------------
 class CamouChatError(Exception):
-    """Base exception for all Tweakio SDK errors"""
+    """Base exception for all camouchat SDK errors"""
 
     pass
 

@@ -1,5 +1,5 @@
 """
-Message filtering utilities for tweakio.
+Message filtering utilities for camouchat.
 
 Provides configurable filters to process, sort, and select
 messages based on content, sender, timestamp, and custom criteria.

@@ -1,9 +1,9 @@
 """
-Exception hierarchy for tweakio operations.
+Exception hierarchy for camouchat operations.
 
 Defines structured exceptions for chat operations, message handling,
 authentication, storage, and platform-specific errors. All exceptions
-inherit from TweakioError for consistent error handling.
+inherit from camouchatError for consistent error handling.
 """
 
 from camouchat.Exceptions.base import (

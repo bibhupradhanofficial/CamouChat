@@ -4,7 +4,7 @@ WhatsApp Exception Hierarchy.
 This module defines the structured exception system used by the WhatsApp
 automation layer of the project. All errors raised during WhatsApp operations
 inherit from `WhatsAppError`, which itself extends the global project error
-base `TweakioError`.
+base `camouchatError`.
 
 Purpose
 -------
@@ -18,7 +18,7 @@ The hierarchy provides:
 Hierarchy Overview
 ------------------
 
-TweakioError
+camouchatError
 └── WhatsAppError
     ├── ChatError
     │   ├── ChatClickError

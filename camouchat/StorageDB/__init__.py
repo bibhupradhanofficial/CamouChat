@@ -1,5 +1,5 @@
 """
-Persistent storage backends for tweakio.
+Persistent storage backends for camouchat.
 
 Handles message caching, session persistence, and local data storage
 using SQLAlchemy ORM with support for SQLite, PostgreSQL, and MySQL.

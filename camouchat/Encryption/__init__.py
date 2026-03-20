@@ -1,5 +1,5 @@
 """
-Encryption package for Tweakio SDK.
+Encryption package for camouchat SDK.
 
 Provides secure encryption and decryption for platform messages using:
 - AES-256-GCM for authenticated encryption
