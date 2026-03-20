@@ -1,5 +1,5 @@
 """
-WhatsApp platform integration for tweakio.
+WhatsApp platform integration for CamouChat.
 
 Provides chat processing, message handling, media operations,
 and human-like interaction capabilities for WhatsApp Web automation.

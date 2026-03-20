@@ -1,5 +1,5 @@
 """
-Shared Resources Module for tweakio-sdk library
+Shared Resources Module for CamouChat
 Supports separate loggers, contextual logging, and JSON formatting.
 """
 
@@ -64,7 +64,7 @@ class CamouChatLoggerAdapter(logging.LoggerAdapter):
 
 
 # ------ Logger Configs ---------
-logger = logging.getLogger("tweakio")
+logger = logging.getLogger("camouchat")
 logger.setLevel(logging.INFO)
 logger.propagate = False  # Avoid duplication
 
@@ -125,7 +125,7 @@ if not _has_file_handler(logger):
 # -------------------------------
 # Browser Logger Setup
 # -------------------------------
-_browser_logger = logging.getLogger("tweakio.browser")
+_browser_logger = logging.getLogger("camouchat.browser")
 _browser_logger.setLevel(logging.INFO)
 _browser_logger.propagate = False
 
