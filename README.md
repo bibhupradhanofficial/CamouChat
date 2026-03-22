@@ -2,30 +2,28 @@
   <img src="https://raw.githubusercontent.com/BITS-Rohit/CamouChat/main/assets/text.png" alt="CamouChat Text" />
 </div>
 
-**CamouChat** is a high-performance, stealth-aware WhatsApp automation SDK. Designed for researchers and developers, it provides a standardized framework for building multi-account WhatsApp agents with **end-to-end encrypted storage**, **per-profile sandboxing**, and **human-like browser behavior**.
+**CamouChat** is a high-performance, stealth-aware WhatsApp automation SDK. Designed for researchers and developers, it
+provides a standardized framework for building multi-account WhatsApp agents with **end-to-end encrypted storage**, *
+*per-profile sandboxing**, and **human-like browser behavior**.
 
 > [!IMPORTANT]
-> CamouChat v0.6 is officially released on PyPI. It is built on [Playwright](https://github.com/microsoft/playwright) and [Camoufox](https://github.com/daijro/camoufox) to provide industry-leading anti-detection capabilities.
+> CamouChat v0.6 is officially released on PyPI. It is built on [Playwright](https://github.com/microsoft/playwright)
+> and [Camoufox](https://github.com/daijro/camoufox) to provide industry-leading anti-detection capabilities.
 
 <p align= "center">
+   <a href="https://pepy.tech/projects/camouchat">
+      <img src="https://static.pepy.tech/personalized-badge/camouchat?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=RED&left_text=downloads" alt="PyPI Downloads">
+   </a>
   <a href="https://pypi.org/project/camouchat/">
-    <img src="https://img.shields.io/pypi/v/camouchat?label=camouchat&color=green" />
+      <img src="https://img.shields.io/pypi/v/camouchat?label=camouchat&color=green" />
   </a>
   <a href="https://opensource.org/licenses/MIT">
-    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" />
+      <img src="https://img.shields.io/badge/License-MIT-yellow.svg" />
   </a>
   <a href="https://github.com/BITS-Rohit/tweakio-sdk">
-    <img src="https://img.shields.io/badge/coverage-%3E75%25-brightgreen" />
+      <img src="https://img.shields.io/badge/coverage-%3E75%25-brightgreen" />
   </a>
 </p>
-
-[//]: # (  <a href="https://pepy.tech/projects/tweakio-sdk">)
-[//]: # (    <img src="https://static.pepy.tech/personalized-badge/tweakio-sdk?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads" />)
-[//]: # (  </a>)
-
-[//]: # (  <a href="https://pypi.org/project/tweakio-sdk/">)
-[//]: # (    <img src="https://img.shields.io/pypi/pyversions/tweakio-sdk" />)
-[//]: # (  </a>)
 
 
 
@@ -148,9 +146,13 @@ python -m camoufox fetch
 Explore the following resources for detailed guides, architecture overviews, and community standards:
 
 👉 [Main Documentation](https://github.com/BITS-Rohit/CamouChat/tree/main/docs)
+
 👉 [Architecture & Key Designs](https://github.com/BITS-Rohit/CamouChat/blob/main/docs/Architecture%20&%20Key%20Designs.md)
+
 👉 [Contributors Guide](https://github.com/BITS-Rohit/CamouChat/blob/main/Contributors.md)
+
 👉 [Code of Conduct](https://github.com/BITS-Rohit/CamouChat/blob/main/CODE_OF_CONDUCT.md)
+
 👉 [Changelog](https://github.com/BITS-Rohit/CamouChat/blob/main/CHANGELOG.md)
 
 
